@@ -54,11 +54,11 @@ jobs:
           DEBUG: ${{ github.event.inputs.debug || 'false' }}
         run: python check_notifications.py
 
-      - name: Upload debug screenshots
-        if: ${{ github.event.inputs.debug == 'true' }}
+      - name: Upload screenshots
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots
+          name: screenshots-${{ github.run_id }}
           path: debug_*.png
           if-no-files-found: ignore
 

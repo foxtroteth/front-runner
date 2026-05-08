@@ -90,7 +90,20 @@ async def scrape() -> tuple[list[dict], list[dict]]:
         # ── Login ──────────────────────────────────────────────────────────────
         log.info("Loading login page...")
         await page.goto(LOGIN_URL, wait_until="networkidle", timeout=30_000)
-        await asyncio.sleep(2)
+
+        # The login page is a Vue SPA — wait for the form to actually mount
+        log.info("Waiting for login form to render...")
+        try:
+            await page.wait_for_selector(
+                'input[type="password"]', timeout=20_000, state="visible"
+            )
+        except Exception:
+            await page.screenshot(path="debug_01_login.png")
+            log.info("Page HTML head:\n%s", (await page.content())[:5000])
+            raise RuntimeError(
+                "Login form never rendered — page may have changed or blocked us"
+            )
+        await asyncio.sleep(1)
 
         if DEBUG:
             await page.screenshot(path="debug_01_login.png")
@@ -105,6 +118,7 @@ async def scrape() -> tuple[list[dict], list[dict]]:
             'input[placeholder*="username" i]',
             'input[name="username"]',
             'input[name="user"]',
+            'input[type="text"]:visible',
         ]:
             try:
                 await page.fill(sel, CIKAL_USERNAME, timeout=3_000)
@@ -115,8 +129,8 @@ async def scrape() -> tuple[list[dict], list[dict]]:
                 pass
 
         if not filled:
-            if DEBUG:
-                log.info("Page HTML:\n%s", (await page.content())[:3000])
+            await page.screenshot(path="debug_01_login.png")
+            log.info("Page HTML:\n%s", (await page.content())[:5000])
             raise RuntimeError("Could not find email/username input on login page")
 
         for sel in ['input[type="password"]', 'input[name="password"]']:
