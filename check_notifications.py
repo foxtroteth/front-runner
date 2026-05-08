@@ -109,16 +109,16 @@ async def scrape() -> tuple[list[dict], list[dict]]:
             await page.screenshot(path="debug_01_login.png")
             log.info("Screenshot saved: debug_01_login.png")
 
-        # Try several selector patterns for the email/username field
+        # Cikal-specific selectors (Vue form uses placeholder + inputmode, no name attr)
         filled = False
         for sel in [
+            'input[inputmode="email"]',
+            'input[placeholder="User Name"]',
+            'input[placeholder*="user name" i]',
             'input[type="email"]',
             'input[name="email"]',
-            'input[placeholder*="email" i]',
-            'input[placeholder*="username" i]',
             'input[name="username"]',
-            'input[name="user"]',
-            'input[type="text"]:visible',
+            'form input.input:not([type="password"])',
         ]:
             try:
                 await page.fill(sel, CIKAL_USERNAME, timeout=3_000)
@@ -133,7 +133,11 @@ async def scrape() -> tuple[list[dict], list[dict]]:
             log.info("Page HTML:\n%s", (await page.content())[:5000])
             raise RuntimeError("Could not find email/username input on login page")
 
-        for sel in ['input[type="password"]', 'input[name="password"]']:
+        for sel in [
+            'input[type="password"]',
+            'input[placeholder="Password"]',
+            'input[name="password"]',
+        ]:
             try:
                 await page.fill(sel, CIKAL_PASSWORD, timeout=3_000)
                 log.info("Password field: %s", sel)
@@ -142,10 +146,11 @@ async def scrape() -> tuple[list[dict], list[dict]]:
                 pass
 
         for sel in [
+            'button:has-text("Sign In")',
+            'button:has-text("Sign in")',
             'button[type="submit"]',
-            "button:has-text('Login')",
-            "button:has-text('Sign In')",
-            "button:has-text('Masuk')",
+            'button:has-text("Login")',
+            'button:has-text("Masuk")',
             'input[type="submit"]',
         ]:
             try:
