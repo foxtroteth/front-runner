@@ -3,8 +3,20 @@ import json
 import asyncio
 import hashlib
 import logging
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+
+JAKARTA_TZ = timezone(timedelta(hours=7))
+
+
+def today_jkt() -> str:
+    return datetime.now(JAKARTA_TZ).date().isoformat()
+
+
+def is_pickup_arrival(text: str) -> bool:
+    """Detects 'handed over at TerasKota' — daughter is now with parent."""
+    t = text.lower()
+    return "handed over" in t and "teraskota" in t
 
 import httpx
 from playwright.async_api import async_playwright
@@ -263,6 +275,11 @@ async def main():
     is_first_run = state.get("first_run", False)
     seen_ids: set[str] = set(state.get("seen_ids", []))
 
+    # Skip entirely if today's pickup-arrival has already happened
+    if state.get("done_for_date") == today_jkt() and not is_first_run:
+        log.info("Already arrived at TerasKota today — skipping check.")
+        return
+
     log.info("Checking notifications (first_run=%s)...", is_first_run)
 
     try:
@@ -304,9 +321,20 @@ async def main():
 
     if new_items:
         log.info("%d new notification(s) found!", len(new_items))
+        arrived_home = False
         for item in new_items:
             text = item.get("text", "(no text)")[:800]
             await send_discord(f"🔔 **Cikal School Notification**\n{text}")
+            if is_pickup_arrival(text):
+                arrived_home = True
+
+        if arrived_home:
+            state["done_for_date"] = today_jkt()
+            await send_discord(
+                "🏠 **Kaia has arrived at TerasKota** — pausing checks for the rest of today."
+            )
+            log.info("Pickup detected — pausing for the rest of %s", today_jkt())
+
         state.update(
             {
                 "seen_ids": list(seen_ids),

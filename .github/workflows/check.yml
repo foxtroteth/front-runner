@@ -2,8 +2,17 @@ name: Check Cikal Notifications
 
 on:
   schedule:
-    # Every 5 minutes — GitHub Actions minimum interval
-    - cron: "*/5 * * * *"
+    # All times in UTC. Target windows: Mon-Fri 06:30-09:00 and 11:00-17:00 GMT+7.
+    # GMT+7 → UTC: subtract 7 hours.
+
+    # Morning window (Mon-Fri 06:30-09:00 GMT+7):
+    - cron: "30-55/5 23 * * 0-4"   # Sun-Thu 23:30-23:55 UTC = Mon-Fri 06:30-06:55 GMT+7
+    - cron: "*/5 0-1 * * 1-5"      # Mon-Fri 00:00-01:55 UTC = Mon-Fri 07:00-08:55 GMT+7
+    - cron: "0 2 * * 1-5"          # Mon-Fri 02:00 UTC      = Mon-Fri 09:00 GMT+7
+
+    # Afternoon window (Mon-Fri 11:00-17:00 GMT+7):
+    - cron: "*/5 4-9 * * 1-5"      # Mon-Fri 04:00-09:55 UTC = Mon-Fri 11:00-16:55 GMT+7
+    - cron: "0 10 * * 1-5"         # Mon-Fri 10:00 UTC      = Mon-Fri 17:00 GMT+7
   workflow_dispatch:
     inputs:
       debug:
