@@ -14,8 +14,10 @@ def today_jkt() -> str:
 
 
 def is_pickup_arrival(text: str) -> bool:
-    """Detects 'handed over at TerasKota' — daughter is now with parent."""
+    """End-of-day signal: 'Shuttle Bus - Release' = handed over to parent."""
     t = text.lower()
+    if "shuttle bus - release" in t or "shuttle bus release" in t:
+        return True
     return "handed over" in t and "teraskota" in t
 
 import httpx
