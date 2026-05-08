@@ -18,6 +18,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # needed to commit state.json back
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
     steps:
       - name: Checkout
@@ -41,11 +43,8 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-v1
 
-      - name: Install Playwright Chromium
-        run: playwright install chromium
-
-      - name: Install Playwright system dependencies
-        run: playwright install-deps chromium
+      - name: Install Playwright Chromium + dependencies
+        run: playwright install --with-deps chromium
 
       - name: Run notification check
         env:
