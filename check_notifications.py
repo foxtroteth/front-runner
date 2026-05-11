@@ -40,6 +40,8 @@ log = logging.getLogger(__name__)
 CIKAL_USERNAME = os.environ["CIKAL_USERNAME"]
 CIKAL_PASSWORD = os.environ["CIKAL_PASSWORD"]
 DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
+NTFY_TOPIC = os.environ["NTFY_TOPIC"]
+NTFY_URL = os.environ.get("NTFY_URL", "https://ntfy.sh")
 STATE_FILE = Path("state.json")
 DEBUG = os.environ.get("DEBUG", "").lower() == "true"
 
@@ -94,6 +96,34 @@ async def send_discord(content: str):
         )
         resp.raise_for_status()
     log.info("Discord message sent")
+
+
+async def send_ntfy(title: str, body: str = ""):
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.post(
+            f"{NTFY_URL}/{NTFY_TOPIC}",
+            content=body or title,
+            headers={
+                "Title": title,
+                "Priority": "high",
+                "Tags": "school",
+            },
+        )
+        resp.raise_for_status()
+    log.info("ntfy notification sent")
+
+
+async def notify(title: str, body: str = ""):
+    """Send via ntfy (primary) and Discord (backup). Both are always attempted."""
+    discord_msg = f"**{title}**" + (f"\n{body}" if body else "")
+    results = await asyncio.gather(
+        send_ntfy(title, body),
+        send_discord(discord_msg),
+        return_exceptions=True,
+    )
+    for channel, exc in zip(("ntfy", "Discord"), results):
+        if isinstance(exc, Exception):
+            log.error("%s delivery failed: %s", channel, exc)
 
 
 def notif_id(item: dict) -> str:
@@ -323,7 +353,7 @@ async def main():
         items, new_cookies = await scrape(state)
     except Exception as exc:
         log.error("Scraping error: %s", exc)
-        await send_discord(f"⚠️ **Cikal Bot Error**\n```\n{exc}\n```")
+        await notify("⚠️ Cikal Bot Error", f"```\n{exc}\n```")
         raise SystemExit(1)
 
     # Persist updated cookies if login was needed
@@ -339,10 +369,9 @@ async def main():
         })
         save_state(state)
         event_count = sum(1 for n in items if is_event_notification(n.get("text", "")))
-        await send_discord(
-            "✅ **Cikal School Bot is active!**\n"
-            f"Monitoring for new **events** only.\n"
-            f"Found {event_count} existing event(s) on first run — not re-sent."
+        await notify(
+            "✅ Cikal School Bot is active!",
+            f"Monitoring for new events only.\nFound {event_count} existing event(s) on first run — not re-sent.",
         )
         log.info("First run done. Marked %d items as seen.", len(all_ids))
         return
@@ -356,8 +385,9 @@ async def main():
             state["seen_ids"] = list(seen_ids)
             state["last_check"] = datetime.now().isoformat()
             save_state(state)
-            await send_discord(
-                "🏠 **Kaia has been handed over at TerasKota** — pausing checks until tomorrow."
+            await notify(
+                "🏠 Kaia has been handed over at TerasKota",
+                "Pausing checks until tomorrow.",
             )
             log.info("Pickup detected — pausing for the rest of %s", today_jkt())
             return
@@ -377,7 +407,7 @@ async def main():
         log.info("%d new event(s)!", len(new_events))
         for item in new_events:
             text = item.get("text", "(no text)")[:800]
-            await send_discord(f"📅 **New Cikal Event**\n{text}")
+            await notify("📅 New Cikal Event", text)
     else:
         log.info("No new events.")
 

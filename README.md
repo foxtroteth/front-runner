@@ -1,6 +1,6 @@
 # Cikal School Notification Bot
 
-Monitors the Cikal community portal for new notifications and sends them to Discord.
+Monitors the Cikal community portal for new notifications and sends them to your iPhone via ntfy, with Discord as a backup.
 
 Triggered by your external scheduler (Cron.org) which calls this GitHub Actions workflow.
 
@@ -28,29 +28,37 @@ git remote add origin https://github.com/YOUR_USERNAME/YOUR_REPO.git
 git push -u origin main
 ```
 
-### 3. Add secrets to GitHub
+### 3. Set up ntfy (iPhone push notifications)
+
+1. Install the **ntfy** app on your iPhone (free, App Store)
+2. Pick a private topic name — something hard to guess, e.g. `cikal-yourname-abc123`
+3. In the app, tap **+** and subscribe to that topic name
+4. That's it — notifications will appear like any other app
+
+### 4. Add secrets to GitHub
 
 Go to your repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
 
-Add these three secrets:
+Add these secrets:
 
 | Name | Value |
 |------|-------|
 | `CIKAL_USERNAME` | Your Cikal login email |
 | `CIKAL_PASSWORD` | Your Cikal login password |
-| `DISCORD_WEBHOOK_URL` | The webhook URL from step 1 |
+| `DISCORD_WEBHOOK_URL` | The Discord webhook URL (backup) |
+| `NTFY_TOPIC` | Your ntfy topic name (e.g. `cikal-yourname-abc123`) |
 
-### 4. Enable GitHub Actions
+### 5. Enable GitHub Actions
 
 Go to your repo → **Actions** tab → click **"I understand my workflows, go ahead and enable them"**
 
-### 5. Trigger setup (Cron.org + optional manual test)
+### 6. Trigger setup (Cron.org + optional manual test)
 
 - This workflow is triggered via **workflow_dispatch**.
 - **Cron.org** calls this workflow on your chosen schedule (for example, every 5 minutes).
 - You can still run it manually from **Actions** → **Check Cikal Notifications** → **Run workflow** to verify quickly.
 
-You should get a Discord message: "✅ Cikal School Notification Bot is active!"
+You should get an ntfy push notification and a Discord message: "✅ Cikal School Bot is active!"
 
 ---
 
@@ -58,7 +66,7 @@ You should get a Discord message: "✅ Cikal School Notification Bot is active!"
 
 - Cron.org triggers the GitHub Actions workflow on your configured schedule
 - The script logs in with Playwright (headless Chrome), loads the notifications page, and checks for new items
-- New notifications are sent to Discord immediately
+- New notifications are sent to your iPhone via ntfy, with Discord as a backup
 - `state.json` tracks which notifications have already been sent (committed back to the repo)
 
 ## Debugging
