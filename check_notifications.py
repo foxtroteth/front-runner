@@ -104,7 +104,7 @@ async def send_ntfy(title: str, body: str = ""):
             f"{NTFY_URL}/{NTFY_TOPIC}",
             content=body or title,
             headers={
-                "Title": title,
+                "Title": title.encode("utf-8").decode("latin-1"),
                 "Priority": "high",
                 "Tags": "school",
             },
