@@ -368,10 +368,9 @@ async def main():
             "last_check": datetime.now().isoformat(),
         })
         save_state(state)
-        event_count = sum(1 for n in items if is_event_notification(n.get("text", "")))
         await notify(
             "✅ Cikal School Bot is active!",
-            f"Monitoring for new events only.\nFound {event_count} existing event(s) on first run — not re-sent.",
+            f"Monitoring for all new notifications.\nFound {len(all_ids)} existing notification(s) on first run — not re-sent.",
         )
         log.info("First run done. Marked %d items as seen.", len(all_ids))
         return
@@ -392,24 +391,25 @@ async def main():
             log.info("Pickup detected — pausing for the rest of %s", today_jkt())
             return
 
-    # Notify about new events only
-    new_events = []
+    # Notify about all new notifications
+    new_items = []
     for item in items:
         nid = notif_id(item)
-        if nid not in seen_ids and is_event_notification(item.get("text", "")):
-            new_events.append(item)
+        if nid not in seen_ids:
+            new_items.append(item)
+            seen_ids.add(nid)
 
-    # Mark all items seen regardless (avoids growing the list with non-events)
+    # Mark remaining items seen
     for item in items:
         seen_ids.add(notif_id(item))
 
-    if new_events:
-        log.info("%d new event(s)!", len(new_events))
-        for item in new_events:
+    if new_items:
+        log.info("%d new notification(s)!", len(new_items))
+        for item in new_items:
             text = item.get("text", "(no text)")[:800]
-            await notify("📅 New Cikal Event", text)
+            await notify("🔔 New Cikal Notification", text)
     else:
-        log.info("No new events.")
+        log.info("No new notifications.")
 
     state.update({
         "seen_ids": list(seen_ids),
