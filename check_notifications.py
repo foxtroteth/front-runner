@@ -13,13 +13,6 @@ def today_jkt() -> str:
     return datetime.now(JAKARTA_TZ).date().isoformat()
 
 
-def is_pickup_arrival(text: str) -> bool:
-    """End-of-day signal: 'Shuttle Bus - Release' = handed over to parent."""
-    t = text.lower()
-    if "shuttle bus - release" in t or "shuttle bus release" in t:
-        return True
-    return "handed over" in t and "teraskota" in t
-
 import httpx
 from playwright.async_api import async_playwright
 
@@ -38,6 +31,28 @@ DEBUG = os.environ.get("DEBUG", "").lower() == "true"
 
 LOGIN_URL = "https://community.cikal.co.id/auth#/login"
 NOTIF_URL = "https://community.cikal.co.id/parent#/notification/index"
+EVENT_URL = "https://community.cikal.co.id/parent#/event/index"
+
+EVENT_KEYWORDS = [
+    "event", "acara", "kegiatan", "workshop", "seminar", "webinar",
+    "festival", "lomba", "competition", "pameran", "exhibition",
+    "pelatihan", "training", "gathering", "bazaar", "bazar",
+]
+
+API_URL_KEYWORDS = ["notification", "notif", "activity", "news", "event"]
+
+
+def is_event_notification(text: str) -> bool:
+    t = text.lower()
+    return any(kw in t for kw in EVENT_KEYWORDS)
+
+
+def is_pickup_arrival(text: str) -> bool:
+    """End-of-day signal: Kaia has been handed over at TerasKota."""
+    t = text.lower()
+    if "shuttle bus - release" in t or "shuttle bus release" in t:
+        return True
+    return "handed over" in t and "teraskota" in t
 
 
 def load_state() -> dict:
@@ -67,9 +82,87 @@ def notif_id(item: dict) -> str:
     return hashlib.md5(str(key).encode()).hexdigest()
 
 
-async def scrape() -> tuple[list[dict], list[dict]]:
-    """Login and scrape notifications. Returns (dom_items, api_items)."""
+async def _do_login(page) -> None:
+    """Fill and submit the login form. Raises if login fails."""
+    log.info("Navigating to login page...")
+    await page.goto(LOGIN_URL, wait_until="networkidle", timeout=30_000)
+
+    try:
+        await page.wait_for_selector('input[type="password"]', timeout=20_000, state="visible")
+    except Exception:
+        await page.screenshot(path="debug_01_login.png")
+        log.info("Page HTML head:\n%s", (await page.content())[:3000])
+        raise RuntimeError("Login form never rendered — page may have changed or blocked us")
+
+    await asyncio.sleep(1)
+
+    if DEBUG:
+        await page.screenshot(path="debug_01_login.png")
+
+    filled = False
+    for sel in [
+        'input[inputmode="email"]',
+        'input[placeholder="User Name"]',
+        'input[placeholder*="user name" i]',
+        'input[type="email"]',
+        'input[name="email"]',
+        'input[name="username"]',
+        'form input.input:not([type="password"])',
+    ]:
+        try:
+            await page.fill(sel, CIKAL_USERNAME, timeout=3_000)
+            log.info("Email field: %s", sel)
+            filled = True
+            break
+        except Exception:
+            pass
+
+    if not filled:
+        await page.screenshot(path="debug_01_login.png")
+        raise RuntimeError("Could not find email/username input on login page")
+
+    for sel in ['input[type="password"]', 'input[placeholder="Password"]', 'input[name="password"]']:
+        try:
+            await page.fill(sel, CIKAL_PASSWORD, timeout=3_000)
+            log.info("Password field: %s", sel)
+            break
+        except Exception:
+            pass
+
+    for sel in [
+        'button:has-text("Sign In")',
+        'button:has-text("Sign in")',
+        'button[type="submit"]',
+        'button:has-text("Login")',
+        'button:has-text("Masuk")',
+        'input[type="submit"]',
+    ]:
+        try:
+            await page.click(sel, timeout=3_000)
+            log.info("Submit button: %s", sel)
+            break
+        except Exception:
+            pass
+
+    await page.wait_for_load_state("networkidle", timeout=20_000)
+    await asyncio.sleep(3)
+
+    current_url = page.url
+    log.info("Post-login URL: %s", current_url)
+    if "login" in current_url or "auth" in current_url:
+        if DEBUG:
+            await page.screenshot(path="debug_02_login_fail.png")
+        raise RuntimeError(f"Login failed — still at: {current_url}")
+
+
+async def scrape(state: dict) -> tuple[list[dict], list]:
+    """
+    Login (or reuse saved session) then scrape events + notifications.
+    Returns (items, new_cookies).
+    new_cookies is [] when the existing session was still valid.
+    """
     captured_api: list[dict] = []
+    new_cookies: list = []
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(
@@ -84,192 +177,111 @@ async def scrape() -> tuple[list[dict], list[dict]]:
                 "Chrome/124.0.0.0 Safari/537.36"
             ),
         )
+
+        # Restore saved session cookies
+        saved_cookies = state.get("cookies", [])
+        if saved_cookies:
+            await context.add_cookies(saved_cookies)
+            log.info("Loaded %d saved cookies — will test session validity", len(saved_cookies))
+
         page = await context.new_page()
 
-        # Intercept API responses that look like notifications
         async def on_response(response):
             url = response.url
-            if response.status == 200 and any(
-                k in url.lower() for k in ["notification", "notif", "activity", "news"]
-            ):
+            if response.status == 200 and any(k in url.lower() for k in API_URL_KEYWORDS):
                 try:
                     data = await response.json()
                     captured_api.append({"url": url, "data": data})
-                    log.info("Captured API response: %s", url)
+                    log.info("Captured API: %s", url)
                 except Exception:
                     pass
 
         page.on("response", on_response)
 
-        # ── Login ──────────────────────────────────────────────────────────────
-        log.info("Loading login page...")
-        await page.goto(LOGIN_URL, wait_until="networkidle", timeout=30_000)
-
-        # The login page is a Vue SPA — wait for the form to actually mount
-        log.info("Waiting for login form to render...")
-        try:
-            await page.wait_for_selector(
-                'input[type="password"]', timeout=20_000, state="visible"
-            )
-        except Exception:
-            await page.screenshot(path="debug_01_login.png")
-            log.info("Page HTML head:\n%s", (await page.content())[:5000])
-            raise RuntimeError(
-                "Login form never rendered — page may have changed or blocked us"
-            )
-        await asyncio.sleep(1)
-
-        if DEBUG:
-            await page.screenshot(path="debug_01_login.png")
-            log.info("Screenshot saved: debug_01_login.png")
-
-        # Cikal-specific selectors (Vue form uses placeholder + inputmode, no name attr)
-        filled = False
-        for sel in [
-            'input[inputmode="email"]',
-            'input[placeholder="User Name"]',
-            'input[placeholder*="user name" i]',
-            'input[type="email"]',
-            'input[name="email"]',
-            'input[name="username"]',
-            'form input.input:not([type="password"])',
-        ]:
-            try:
-                await page.fill(sel, CIKAL_USERNAME, timeout=3_000)
-                log.info("Email field: %s", sel)
-                filled = True
-                break
-            except Exception:
-                pass
-
-        if not filled:
-            await page.screenshot(path="debug_01_login.png")
-            log.info("Page HTML:\n%s", (await page.content())[:5000])
-            raise RuntimeError("Could not find email/username input on login page")
-
-        for sel in [
-            'input[type="password"]',
-            'input[placeholder="Password"]',
-            'input[name="password"]',
-        ]:
-            try:
-                await page.fill(sel, CIKAL_PASSWORD, timeout=3_000)
-                log.info("Password field: %s", sel)
-                break
-            except Exception:
-                pass
-
-        for sel in [
-            'button:has-text("Sign In")',
-            'button:has-text("Sign in")',
-            'button[type="submit"]',
-            'button:has-text("Login")',
-            'button:has-text("Masuk")',
-            'input[type="submit"]',
-        ]:
-            try:
-                await page.click(sel, timeout=3_000)
-                log.info("Submit button: %s", sel)
-                break
-            except Exception:
-                pass
-
-        await page.wait_for_load_state("networkidle", timeout=20_000)
+        # Navigate to events page — doubles as session validity check
+        log.info("Loading events page...")
+        await page.goto(EVENT_URL, wait_until="networkidle", timeout=30_000)
         await asyncio.sleep(3)
 
-        current_url = page.url
-        log.info("Post-login URL: %s", current_url)
+        if "login" in page.url or "auth" in page.url:
+            log.info("Session invalid — logging in fresh")
+            await _do_login(page)
 
-        if "login" in current_url or "auth" in current_url:
-            if DEBUG:
-                await page.screenshot(path="debug_02_login_fail.png")
-            raise RuntimeError(
-                f"Login appears to have failed — still at: {current_url}"
-            )
+            # Save new cookies so future runs skip login
+            new_cookies = await context.cookies()
+            log.info("Session saved (%d cookies)", len(new_cookies))
 
-        # ── Notifications page ─────────────────────────────────────────────────
-        log.info("Loading notifications page...")
-        await page.goto(NOTIF_URL, wait_until="networkidle", timeout=30_000)
-        await asyncio.sleep(4)
+            # Revisit events page now that we're logged in
+            log.info("Reloading events page after login...")
+            await page.goto(EVENT_URL, wait_until="networkidle", timeout=30_000)
+            await asyncio.sleep(4)
+        else:
+            log.info("Session valid — login skipped")
 
         if DEBUG:
-            await page.screenshot(path="debug_03_notifications.png")
-            log.info("Screenshot saved: debug_03_notifications.png")
+            await page.screenshot(path="debug_03_events.png")
 
-        # Extract items from DOM — try common SPA patterns
-        dom_items: list[dict] = await page.evaluate(
-            """() => {
-            const selectors = [
-                '.notification-item',
-                '.notif-item',
-                '[class*="notification-list"] > *',
-                '[class*="notif-list"] li',
-                '.list-group-item',
-                '[class*="notif"][class*="card"]',
-                '[class*="notification"][class*="row"]',
-            ];
-            for (const sel of selectors) {
-                const nodes = document.querySelectorAll(sel);
-                if (nodes.length > 0) {
-                    return Array.from(nodes)
-                        .map((el, i) => ({
-                            id: el.getAttribute('data-id') || el.id || String(i),
-                            text: el.innerText.trim().replace(/\\s+/g, ' '),
-                            selector: sel,
-                        }))
-                        .filter(n => n.text.length > 10);
-                }
-            }
-            // Fallback: grab all non-trivial text blocks from the page body
-            return [{
-                id: 'fullpage',
-                text: document.body.innerText.trim().replace(/\\s+/g, ' '),
-                selector: 'body',
-            }];
-        }"""
-        )
+        # Also hit the notifications page for the pickup-arrival signal
+        log.info("Loading notifications page...")
+        await page.goto(NOTIF_URL, wait_until="networkidle", timeout=30_000)
+        await asyncio.sleep(3)
 
-        log.info(
-            "DOM items: %d (selector: %s)",
-            len(dom_items),
-            dom_items[0].get("selector") if dom_items else "none",
-        )
+        if DEBUG:
+            await page.screenshot(path="debug_04_notifications.png")
+
         await browser.close()
 
-    return dom_items, captured_api
+    items = extract_from_api(captured_api)
+    return items, new_cookies
 
 
-def extract_from_api(api_data: list[dict]) -> list[dict] | None:
-    """Try to pull a structured notification list from captured API responses."""
-    for entry in api_data:
+def extract_from_api(api_data: list[dict]) -> list[dict]:
+    """Pull structured items from captured API responses. Event URLs come first."""
+    all_items: list[dict] = []
+    seen_dedup: set[str] = set()
+
+    sorted_data = sorted(
+        api_data,
+        key=lambda e: (0 if "event" in e["url"].lower() else 1),
+    )
+
+    for entry in sorted_data:
         data = entry["data"]
         candidates = None
         if isinstance(data, list):
             candidates = data
         elif isinstance(data, dict):
-            for key in ("data", "notifications", "items", "results", "list"):
+            for key in ("data", "notifications", "items", "results", "list", "events"):
                 v = data.get(key)
                 if isinstance(v, list) and len(v) > 0:
                     candidates = v
                     break
-        if candidates:
-            items = []
-            for i, c in enumerate(candidates):
-                if not isinstance(c, dict):
-                    continue
-                text = (
-                    c.get("message")
-                    or c.get("content")
-                    or c.get("description")
-                    or c.get("title")
-                    or str(c)
-                )
-                item_id = str(c.get("id") or c.get("_id") or i)
-                items.append({"id": item_id, "text": str(text)})
-            if items:
-                log.info("Using %d items from API: %s", len(items), entry["url"])
-                return items
-    return None
+
+        if not candidates:
+            continue
+
+        for i, c in enumerate(candidates):
+            if not isinstance(c, dict):
+                continue
+            text = (
+                c.get("message")
+                or c.get("content")
+                or c.get("description")
+                or c.get("title")
+                or str(c)
+            )
+            item_id = str(c.get("id") or c.get("_id") or i)
+            dedup_key = f"{entry['url']}:{item_id}"
+            if dedup_key not in seen_dedup:
+                seen_dedup.add(dedup_key)
+                all_items.append({
+                    "id": item_id,
+                    "text": str(text),
+                    "source_url": entry["url"],
+                })
+
+    log.info("Extracted %d unique items from %d API responses", len(all_items), len(api_data))
+    return all_items
 
 
 async def main():
@@ -277,75 +289,77 @@ async def main():
     is_first_run = state.get("first_run", False)
     seen_ids: set[str] = set(state.get("seen_ids", []))
 
-    # Skip entirely if today's pickup-arrival has already happened
+    # Skip if today's pickup already happened
     if state.get("done_for_date") == today_jkt() and not is_first_run:
-        log.info("Already arrived at TerasKota today — skipping check.")
+        log.info("Already done for today (TerasKota pickup detected) — skipping.")
         return
 
-    log.info("Checking notifications (first_run=%s)...", is_first_run)
+    log.info("Checking for new events (first_run=%s)...", is_first_run)
 
     try:
-        dom_items, api_data = await scrape()
+        items, new_cookies = await scrape(state)
     except Exception as exc:
         log.error("Scraping error: %s", exc)
         await send_discord(f"⚠️ **Cikal Bot Error**\n```\n{exc}\n```")
         raise SystemExit(1)
 
-    # Prefer API data (structured) over DOM text scraping
-    items = extract_from_api(api_data) or dom_items
+    # Persist updated cookies if login was needed
+    if new_cookies:
+        state["cookies"] = new_cookies
 
     if is_first_run:
-        # Mark everything currently visible as already seen — don't spam on boot
         all_ids = [notif_id(n) for n in items]
-        state.update(
-            {
-                "seen_ids": all_ids,
-                "first_run": False,
-                "last_check": datetime.now().isoformat(),
-            }
-        )
+        state.update({
+            "seen_ids": all_ids,
+            "first_run": False,
+            "last_check": datetime.now().isoformat(),
+        })
         save_state(state)
+        event_count = sum(1 for n in items if is_event_notification(n.get("text", "")))
         await send_discord(
-            "✅ **Cikal School Notification Bot is active!**\n"
-            f"Checking every 5 minutes.\n"
-            f"Found {len(items)} existing notification(s) on first run — not re-sent."
+            "✅ **Cikal School Bot is active!**\n"
+            f"Monitoring for new **events** only.\n"
+            f"Found {event_count} existing event(s) on first run — not re-sent."
         )
-        log.info("First run done. Marked %d notifications as seen.", len(all_ids))
+        log.info("First run done. Marked %d items as seen.", len(all_ids))
         return
 
-    # Find notifications we haven't seen before
-    new_items = []
+    # Check all items for the end-of-day pickup signal first
     for item in items:
-        nid = notif_id(item)
-        if nid not in seen_ids:
-            new_items.append(item)
-            seen_ids.add(nid)
-
-    if new_items:
-        log.info("%d new notification(s) found!", len(new_items))
-        arrived_home = False
-        for item in new_items:
-            text = item.get("text", "(no text)")[:800]
-            await send_discord(f"🔔 **Cikal School Notification**\n{text}")
-            if is_pickup_arrival(text):
-                arrived_home = True
-
-        if arrived_home:
+        if is_pickup_arrival(item.get("text", "")):
             state["done_for_date"] = today_jkt()
+            state["last_check"] = datetime.now().isoformat()
+            save_state(state)
             await send_discord(
-                "🏠 **Kaia has arrived at TerasKota** — pausing checks for the rest of today."
+                "🏠 **Kaia has been handed over at TerasKota** — pausing checks until tomorrow."
             )
             log.info("Pickup detected — pausing for the rest of %s", today_jkt())
+            return
 
-        state.update(
-            {
-                "seen_ids": list(seen_ids),
-                "last_check": datetime.now().isoformat(),
-            }
-        )
-        save_state(state)
+    # Notify about new events only
+    new_events = []
+    for item in items:
+        nid = notif_id(item)
+        if nid not in seen_ids and is_event_notification(item.get("text", "")):
+            new_events.append(item)
+
+    # Mark all items seen regardless (avoids growing the list with non-events)
+    for item in items:
+        seen_ids.add(notif_id(item))
+
+    if new_events:
+        log.info("%d new event(s)!", len(new_events))
+        for item in new_events:
+            text = item.get("text", "(no text)")[:800]
+            await send_discord(f"📅 **New Cikal Event**\n{text}")
     else:
-        log.info("No new notifications.")
+        log.info("No new events.")
+
+    state.update({
+        "seen_ids": list(seen_ids),
+        "last_check": datetime.now().isoformat(),
+    })
+    save_state(state)
 
 
 if __name__ == "__main__":
