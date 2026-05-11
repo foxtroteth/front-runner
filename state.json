@@ -1,42 +1,43 @@
 {
   "seen_ids": [
-    "2c6d947cec4f34fb91988054e6ce1ceb",
-    "ed663d6b0cb053b1fc616528cfcab0ff",
     "e95a581db0aab67f82ba7ee92292d8e0",
-    "739e1cff97db8f536793c9272cf215b9",
-    "0a623b91c0607e134ef58c54a7d2e25c",
+    "717c2ab8997f09323610315c2f7b8a3d",
     "d7b1296497b9f39e0c67bd77f71c3091",
+    "0af59672060d2c1bbd9fde01e70752a4",
+    "ed663d6b0cb053b1fc616528cfcab0ff",
     "2d030d06a32269197c371c94bf8f8789",
+    "d5814410937ffbd448bfa4749d6a3338",
+    "2c6d947cec4f34fb91988054e6ce1ceb",
+    "fd375d63c49aa975e887015be72c9ee6",
     "64f6663b6b8cb1315ee6845115a4130d",
     "17af419a17c97bb6b674d98f2b60a49d",
-    "0af59672060d2c1bbd9fde01e70752a4",
-    "717c2ab8997f09323610315c2f7b8a3d",
-    "d5814410937ffbd448bfa4749d6a3338",
-    "fd375d63c49aa975e887015be72c9ee6"
+    "739e1cff97db8f536793c9272cf215b9",
+    "0a623b91c0607e134ef58c54a7d2e25c"
   ],
   "first_run": false,
   "cookies": [
     {
       "name": "com_rt",
-      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflSumnjzSTbUucYeRTZ6XT7zmcYpScbVSTbVuTZx4njlqlCACcamAlSJyzq0RnjT1njdAv_oDeaxCnSswzq0XnjTXzIKOl9U2G7pEawUF3Y6CnCoRL_lOl9zqPRlfcZVO37pWMa7SA1..ih1pKeoSX97gayaclc_76is3VOl2pehbdqC6",
+      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflSKyeI3weq01zIdyzjmZT7cSTjlwTZUKTj3AeIxwnI64lCACcamAlSJyzq0RnjT1njdAv_oDeaxCnSswzq04zjlRzIeOl9U2G7pEawUF3Y6CnCoRL_lOl9zqPRlfcZVO37pWM926W_sB7nXjDDQK8VfNIsmRnwiSUfSowJB-cHnRHVN3",
       "domain": "community.cikal.co.id",
       "path": "/",
-      "expires": 1782838801.207584,
+      "expires": 1782838801.186865,
       "httpOnly": true,
       "secure": true,
       "sameSite": "Lax"
     },
     {
       "name": "com_at",
-      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflSumnjzSTbUucYeRTZ6XT7zmcYpScbVSTbVuTZx4njlqlCACLazu3uWRcbeCnZF4PYAOlZp-3Yy2gbpuawoucClfP9pOP_AC3YVRcbFXawoucClfTIsAzIlOl9zXLbUuP9U.3ZpZlSDELbyOv_omPhp-PZu.3ZpZlSDELbyOv_oAeaoXPZpRawoucClfP9pOP_ACGbVXlSJyzq31zj0qzj6Fv_oughdCnSswzq04TjsXzSdOl9U2G7pEawUF3Y6CnComL_lOl9UF3Y6CnCoAeaouP9xCv_oq375CnZcmPhzu.xMvz9kGDfA-KWFekZ1c06qS9GY2XbJYYygYmu47IEA2ks",
+      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflSKyeI3weq01zIdyzjmZT7cSTjlwTZUKTj3AeIxwnI64lCACLazu3uWRcbeCnZF4PYAOlZp-3Yy2gbpuawoucClfP9pOP_AC3YVRcbFXawoucClfTIsAzIlOl9zXLbUuP9U.3ZpZlSDELbyOv_omPhp-PZu.3ZpZlSDELbyOv_oAeaoXPZpRawoucClfP9pOP_ACGbVXlSJyzq31zIxRTS67v_oughdCnSswzq04zSdRzI3Ol9U2G7pEawUF3Y6CnComL_lOl9UF3Y6CnCoAeaouP9xCv_oq375CnZcmPhzu.xMpjCl_5EX9.hKhnVGz61mbnf6Q6PSjogAEjxDKQxBlRK",
       "domain": "community.cikal.co.id",
       "path": "/",
-      "expires": 1778501461.13301,
+      "expires": 1778560257.446197,
       "httpOnly": true,
       "secure": true,
       "sameSite": "Lax"
     }
   ],
-  "last_check": "2026-05-11T10:01:06.906534",
-  "done_for_date": "2026-05-11"
+  "last_check": "2026-05-11T23:31:10.057452",
+  "done_for_date": "2026-05-11",
+  "consecutive_failures": 0
 }
