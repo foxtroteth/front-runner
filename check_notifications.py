@@ -326,8 +326,11 @@ async def main():
 
     # Check all items for the end-of-day pickup signal first
     for item in items:
-        if is_pickup_arrival(item.get("text", "")):
+        nid = notif_id(item)
+        if is_pickup_arrival(item.get("text", "")) and nid not in seen_ids:
+            seen_ids.add(nid)
             state["done_for_date"] = today_jkt()
+            state["seen_ids"] = list(seen_ids)
             state["last_check"] = datetime.now().isoformat()
             save_state(state)
             await send_discord(
