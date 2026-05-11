@@ -104,7 +104,7 @@ async def send_ntfy(title: str, body: str = ""):
             f"{NTFY_URL}/{NTFY_TOPIC}",
             content=body or title,
             headers={
-                "Title": title,
+                "Title": title.encode("utf-8").decode("latin-1"),
                 "Priority": "high",
                 "Tags": "school",
             },
@@ -352,9 +352,26 @@ async def main():
     try:
         items, new_cookies = await scrape(state)
     except Exception as exc:
-        log.error("Scraping error: %s", exc)
-        await notify("⚠️ Cikal Bot Error", f"```\n{exc}\n```")
+        err = str(exc)
+        log.error("Scraping error: %s", err)
+
+        if "timeout" in err.lower():
+            log.info("Timeout — skipping silently.")
+            return
+
+        failures = state.get("consecutive_failures", 0) + 1
+        state["consecutive_failures"] = failures
+        save_state(state)
+        log.info("Consecutive failures: %d", failures)
+
+        if failures >= 10:
+            state["consecutive_failures"] = 0
+            save_state(state)
+            await send_discord(f"⚠️ **Cikal Bot Error** (10 consecutive failures)\n```\n{err}\n```")
         raise SystemExit(1)
+
+    # Successful scrape — reset failure counter
+    state["consecutive_failures"] = 0
 
     # Persist updated cookies if login was needed
     if new_cookies:
@@ -368,9 +385,10 @@ async def main():
             "last_check": datetime.now().isoformat(),
         })
         save_state(state)
-        await notify(
-            "✅ Cikal School Bot is active!",
-            f"Monitoring for all new notifications.\nFound {len(all_ids)} existing notification(s) on first run — not re-sent.",
+        await send_discord(
+            "✅ **Cikal School Bot is active!**\n"
+            f"Monitoring for all new notifications.\n"
+            f"Found {len(all_ids)} existing notification(s) on first run — not re-sent."
         )
         log.info("First run done. Marked %d items as seen.", len(all_ids))
         return
