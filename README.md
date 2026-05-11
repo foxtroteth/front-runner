@@ -2,7 +2,7 @@
 
 Monitors the Cikal community portal for new notifications and sends them to Discord.
 
-Runs every 5 minutes on GitHub Actions — completely free.
+Triggered by your external scheduler (Cron.org) which calls this GitHub Actions workflow.
 
 ---
 
@@ -44,9 +44,11 @@ Add these three secrets:
 
 Go to your repo → **Actions** tab → click **"I understand my workflows, go ahead and enable them"**
 
-### 5. Run it once manually to verify
+### 5. Trigger setup (Cron.org + optional manual test)
 
-Go to **Actions** → **Check Cikal Notifications** → **Run workflow**
+- This workflow is triggered via **workflow_dispatch**.
+- **Cron.org** calls this workflow on your chosen schedule (for example, every 5 minutes).
+- You can still run it manually from **Actions** → **Check Cikal Notifications** → **Run workflow** to verify quickly.
 
 You should get a Discord message: "✅ Cikal School Notification Bot is active!"
 
@@ -54,7 +56,7 @@ You should get a Discord message: "✅ Cikal School Notification Bot is active!"
 
 ## How it works
 
-- GitHub Actions runs the script every 5 minutes
+- Cron.org triggers the GitHub Actions workflow on your configured schedule
 - The script logs in with Playwright (headless Chrome), loads the notifications page, and checks for new items
 - New notifications are sent to Discord immediately
 - `state.json` tracks which notifications have already been sent (committed back to the repo)
