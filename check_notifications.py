@@ -3,14 +3,28 @@ import json
 import asyncio
 import hashlib
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone, timedelta, time
 from pathlib import Path
 
 JAKARTA_TZ = timezone(timedelta(hours=7))
 
+# Mon-Fri only (weekday() 0=Mon … 4=Fri)
+SCHEDULE_WINDOWS = [
+    (time(6, 30), time(9, 0)),    # morning:   06:30–09:00 GMT+7
+    (time(12, 0), time(17, 0)),   # afternoon: 12:00–17:00 GMT+7
+]
+
 
 def today_jkt() -> str:
     return datetime.now(JAKARTA_TZ).date().isoformat()
+
+
+def is_in_schedule() -> bool:
+    now = datetime.now(JAKARTA_TZ)
+    if now.weekday() >= 5:  # Saturday or Sunday
+        return False
+    t = now.time().replace(second=0, microsecond=0)
+    return any(start <= t <= end for start, end in SCHEDULE_WINDOWS)
 
 
 import httpx
@@ -290,6 +304,10 @@ def extract_from_api(api_data: list[dict]) -> list[dict]:
 
 
 async def main():
+    if not is_in_schedule():
+        log.info("Outside schedule window — skipping.")
+        return
+
     state = load_state()
     is_first_run = state.get("first_run", False)
     seen_ids: set[str] = set(state.get("seen_ids", []))
