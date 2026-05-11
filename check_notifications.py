@@ -61,7 +61,12 @@ def load_state() -> dict:
     return {"seen_ids": [], "first_run": True}
 
 
+MAX_SEEN_IDS = 200
+
 def save_state(state: dict):
+    ids = state.get("seen_ids", [])
+    if len(ids) > MAX_SEEN_IDS:
+        state["seen_ids"] = ids[-MAX_SEEN_IDS:]
     STATE_FILE.write_text(
         json.dumps(state, indent=2, ensure_ascii=False), encoding="utf-8"
     )
