@@ -426,7 +426,7 @@ async def main():
             save_state(state)
             await notify(
                 "🏠 Kaia has been handed over at TerasKota",
-                "Pausing checks until tomorrow.",
+                text[:800],
             )
             log.info("Pickup detected — pausing for the rest of %s", today_jkt())
             return
