@@ -44,8 +44,14 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-chromium-${{ runner.os }}-v2
 
-      - name: Install Playwright Chromium + dependencies
-        run: playwright install --with-deps chromium
+      - name: Install Playwright system dependencies
+        run: |
+          echo 'Acquire::http::Timeout "10"; Acquire::Retries "1";' | sudo tee /etc/apt/apt.conf.d/99timeout
+          playwright install-deps chromium
+
+      - name: Install Playwright Chromium browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: playwright install chromium
 
       - name: Run notification check
         env:
