@@ -102,11 +102,11 @@ async def send_ntfy(title: str, body: str = ""):
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.post(
             f"{NTFY_URL}/{NTFY_TOPIC}",
-            content=body or title,
-            headers={
-                "Title": title.encode("utf-8").decode("latin-1"),
-                "Priority": "high",
-                "Tags": "school",
+            json={
+                "title": title,
+                "message": body or title,
+                "priority": 4,
+                "tags": ["school"],
             },
         )
         resp.raise_for_status()
