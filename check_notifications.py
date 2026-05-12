@@ -336,9 +336,9 @@ def extract_from_api(api_data: list[dict]) -> list[dict]:
 
 
 async def main():
-    # if not is_in_schedule():
-    #     log.info("Outside schedule window — skipping.")
-    #     return
+    if not is_in_schedule():
+        log.info("Outside schedule window — skipping.")
+        return
 
     state = load_state()
     is_first_run = state.get("first_run", False)
