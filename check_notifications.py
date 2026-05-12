@@ -172,7 +172,7 @@ async def _do_login(page) -> None:
         await page.screenshot(path="debug_01_login.png")
         raise RuntimeError("Could not find email/username input on login page")
 
-    for sel in ['input[type="password"]', 'input[placeholder="Password"]', 'input[name="password"]']:
+    for sel in ['input[type="password"]', 'input[placeholder="password"]', 'input[name="password"]']:
         try:
             await page.fill(sel, CIKAL_PASSWORD, timeout=3_000)
             log.info("Password field: %s", sel)
@@ -336,9 +336,9 @@ def extract_from_api(api_data: list[dict]) -> list[dict]:
 
 
 async def main():
-    if not is_in_schedule():
-        log.info("Outside schedule window — skipping.")
-        return
+    # if not is_in_schedule():
+    #     log.info("Outside schedule window — skipping.")
+    #     return
 
     state = load_state()
     is_first_run = state.get("first_run", False)
