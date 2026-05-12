@@ -99,15 +99,11 @@ async def send_discord(content: str):
 
 
 async def send_ntfy(title: str, body: str = ""):
+    text = body or title
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.post(
             f"{NTFY_URL}/{NTFY_TOPIC}",
-            json={
-                "title": title,
-                "message": body or title,
-                "priority": 4,
-                "tags": ["school"],
-            },
+            content=text.encode("utf-8"),
         )
         resp.raise_for_status()
     log.info("ntfy notification sent")
