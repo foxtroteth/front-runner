@@ -1,23 +1,24 @@
 {
   "seen_ids": [
-    "e3f1eee6356d3a36bdb4ca868bb1b185",
-    "2d030d06a32269197c371c94bf8f8789",
-    "e95a581db0aab67f82ba7ee92292d8e0",
-    "4bd3886819fca67ad2b092f3d017cbd0",
-    "ed663d6b0cb053b1fc616528cfcab0ff",
-    "0a623b91c0607e134ef58c54a7d2e25c",
-    "4e36f190f4198919b66e9998bbb2eb49",
-    "d7b1296497b9f39e0c67bd77f71c3091",
-    "2c6d947cec4f34fb91988054e6ce1ceb",
-    "0af59672060d2c1bbd9fde01e70752a4",
     "64f6663b6b8cb1315ee6845115a4130d",
-    "717c2ab8997f09323610815c2f7b8a3d",
-    "afe11d96357c01240e2a39eb42871094",
-    "d5814410937ffbd448bfa4749d6a3338",
-    "fd375d63c49aa975e887015be72c9ee6",
     "17af419a17c97bb6b674d98f2b60a49d",
     "717c2ab8997f09323610315c2f7b8a3d",
-    "739e1cff97db8f536793c9272cf215b9"
+    "688eea99fe22ec54aa984fd14c56c069",
+    "2d030d06a32269197c371c94bf8f8789",
+    "d7b1296497b9f39e0c67bd77f71c3091",
+    "afe11d96357c01240e2a39eb42871094",
+    "717c2ab8997f09323610815c2f7b8a3d",
+    "0af59672060d2c1bbd9fde01e70752a4",
+    "4e36f190f4198919b66e9998bbb2eb49",
+    "e95a581db0aab67f82ba7ee92292d8e0",
+    "0a623b91c0607e134ef58c54a7d2e25c",
+    "d5814410937ffbd448bfa4749d6a3338",
+    "739e1cff97db8f536793c9272cf215b9",
+    "fd375d63c49aa975e887015be72c9ee6",
+    "ed663d6b0cb053b1fc616528cfcab0ff",
+    "2c6d947cec4f34fb91988054e6ce1ceb",
+    "e3f1eee6356d3a36bdb4ca868bb1b185",
+    "4bd3886819fca67ad2b092f3d017cbd0"
   ],
   "first_run": false,
   "cookies": [
@@ -42,7 +43,8 @@
       "sameSite": "Lax"
     }
   ],
-  "last_check": "2026-05-12T07:46:02.637400",
-  "done_for_date": "2026-05-11",
-  "consecutive_failures": 0
+  "last_check": "2026-05-12T07:51:24.747445",
+  "done_for_date": "2026-05-12",
+  "consecutive_failures": 0,
+  "cooldown_until": null
 }
