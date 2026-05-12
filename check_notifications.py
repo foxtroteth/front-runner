@@ -71,6 +71,12 @@ def is_pickup_arrival(text: str) -> bool:
     return "handed over" in t and "teraskota" in t
 
 
+def is_school_arrival(text: str) -> bool:
+    """Morning signal: Kaia has arrived at school."""
+    t = text.lower()
+    return "has arrived at sekolah cikal" in t
+
+
 def load_state() -> dict:
     if STATE_FILE.exists():
         return json.loads(STATE_FILE.read_text(encoding="utf-8"))
@@ -343,6 +349,14 @@ async def main():
         log.info("Already done for today (TerasKota pickup detected) — skipping.")
         return
 
+    # Skip if within post-arrival cooldown
+    cooldown_until = state.get("cooldown_until")
+    if cooldown_until:
+        cooldown_dt = datetime.fromisoformat(cooldown_until)
+        if datetime.now(JAKARTA_TZ) < cooldown_dt:
+            log.info("In post-arrival cooldown until %s — skipping.", cooldown_until)
+            return
+
     log.info("Checking for new events (first_run=%s)...", is_first_run)
 
     try:
@@ -389,12 +403,24 @@ async def main():
         log.info("First run done. Marked %d items as seen.", len(all_ids))
         return
 
-    # Check all items for the end-of-day pickup signal first
+    # Check all items for the end-of-day pickup signal and school arrival first
     for item in items:
         nid = notif_id(item)
-        if is_pickup_arrival(item.get("text", "")) and nid not in seen_ids:
+        text = item.get("text", "")
+        if is_school_arrival(text) and nid not in seen_ids:
+            seen_ids.add(nid)
+            cooldown_dt = datetime.now(JAKARTA_TZ) + timedelta(hours=3)
+            state["cooldown_until"] = cooldown_dt.isoformat()
+            state["seen_ids"] = list(seen_ids)
+            state["last_check"] = datetime.now().isoformat()
+            save_state(state)
+            await notify("🏫 Kaia has arrived at school", text[:800])
+            log.info("School arrival detected — cooling down until %s", cooldown_dt.isoformat())
+            return
+        if is_pickup_arrival(text) and nid not in seen_ids:
             seen_ids.add(nid)
             state["done_for_date"] = today_jkt()
+            state["cooldown_until"] = None
             state["seen_ids"] = list(seen_ids)
             state["last_check"] = datetime.now().isoformat()
             save_state(state)
