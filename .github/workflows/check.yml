@@ -37,16 +37,24 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(pip show playwright | grep ^Version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
       - name: Cache Playwright browser
         id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-v2
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
-      - name: Install Playwright Chromium + dependencies
+      - name: Install Playwright Chromium system dependencies
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: playwright install --with-deps chromium
+
+      - name: Install Playwright Chromium (from cache, binary only)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: playwright install chromium
 
       - name: Run notification check
         env:
