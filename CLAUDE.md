@@ -42,6 +42,10 @@ The entire application lives in `check_notifications.py`. The execution flow is:
 
 6. **End-of-day pickup detection** (`is_pickup_arrival`): If any unseen item contains "shuttle bus - release" or ("handed over" + "teraskota"), the bot sets `done_for_date` and pauses for the rest of the day.
 
+7. **School-arrival detection** (`is_school_arrival`): Matches "has arrived at" + "sekolah cikal", non-adjacent. The portal's wording changes between academic years (2025/26: "has arrived at Sekolah Cikal Serpong"; 2026/27: "has arrived at Campus A TK-SD - Sekolah Cikal Serpong") — but the matcher must never fire on the afternoon "has arrived at TerasKota" message, which is not a school arrival. A false positive here starts a 3-hour cooldown that suppresses all notifications, so prefer a miss (which still sends a generic notification) over a loose match.
+
+**Known gotcha — start of a new academic year:** the portal gates the parent's notification feed behind the new "Parents Handbook" agreement. While the agreement is pending, the notification-feed XHR produces no capturable JSON response at all (runs log "Extracted 0 unique items from 1 API responses" — only the event feed is captured), so the bot goes silent even though shuttle notifications are being generated with their real timestamps. The moment the parent accepts the agreement in the portal/app, the feed reappears and the backlog is sent (observed 2026-07-22: acceptance at 08:17, feed captured again at the 08:20 run). Accept the agreement on day one of each school year.
+
 ## Required secrets (GitHub Actions)
 
 | Secret | Purpose |

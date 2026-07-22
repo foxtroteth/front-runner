@@ -83,5 +83,7 @@ jobs:
             exit 0
           fi
           git commit -m "chore: update notification state [skip ci]"
-          git pull --rebase origin main
+          # -X theirs keeps this run's state.json (the freshest) if a
+          # concurrent run pushed its own state commit in the meantime
+          git pull --rebase -X theirs origin main
           git push

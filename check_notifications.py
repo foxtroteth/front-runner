@@ -72,9 +72,16 @@ def is_pickup_arrival(text: str) -> bool:
 
 
 def is_school_arrival(text: str) -> bool:
-    """Morning signal: Kaia has arrived at school."""
+    """Morning signal: Kaia has arrived at school.
+
+    The wording changes between academic years — 2025/26 said
+    "has arrived at Sekolah Cikal Serpong at 07:21", 2026/27 says
+    "has arrived at Campus A TK-SD - Sekolah Cikal Serpong at 07:24" —
+    so don't require the two phrases to be adjacent. Must NOT match the
+    afternoon "has arrived at TerasKota" message.
+    """
     t = text.lower()
-    return "has arrived at sekolah cikal" in t
+    return "has arrived at" in t and "sekolah cikal" in t
 
 
 def load_state() -> dict:
@@ -342,7 +349,11 @@ async def main():
 
     state = load_state()
     is_first_run = state.get("first_run", False)
-    seen_ids: set[str] = set(state.get("seen_ids", []))
+    # Keep seen_ids in insertion (chronological) order: the save_state cap
+    # drops the oldest entries, and stable ordering keeps the state.json
+    # diffs append-only instead of rewriting the whole list every run.
+    seen_list: list[str] = list(state.get("seen_ids", []))
+    seen_ids: set[str] = set(seen_list)
 
     # Skip if today's pickup already happened
     if state.get("done_for_date") == today_jkt() and not is_first_run:
@@ -409,9 +420,10 @@ async def main():
         text = item.get("text", "")
         if is_school_arrival(text) and nid not in seen_ids:
             seen_ids.add(nid)
+            seen_list.append(nid)
             cooldown_dt = datetime.now(JAKARTA_TZ) + timedelta(hours=3)
             state["cooldown_until"] = cooldown_dt.isoformat()
-            state["seen_ids"] = list(seen_ids)
+            state["seen_ids"] = seen_list
             state["last_check"] = datetime.now().isoformat()
             save_state(state)
             await notify("🏫 Kaia has arrived at school", text[:800])
@@ -419,9 +431,10 @@ async def main():
             return
         if is_pickup_arrival(text) and nid not in seen_ids:
             seen_ids.add(nid)
+            seen_list.append(nid)
             state["done_for_date"] = today_jkt()
             state["cooldown_until"] = None
-            state["seen_ids"] = list(seen_ids)
+            state["seen_ids"] = seen_list
             state["last_check"] = datetime.now().isoformat()
             save_state(state)
             await notify(
@@ -437,7 +450,8 @@ async def main():
         nid = notif_id(item)
         if nid not in seen_ids:
             new_items.append(item)
-        seen_ids.add(nid)
+            seen_ids.add(nid)
+            seen_list.append(nid)
 
     if new_items:
         log.info("%d new notification(s)!", len(new_items))
@@ -448,7 +462,7 @@ async def main():
         log.info("No new notifications.")
 
     state.update({
-        "seen_ids": list(seen_ids),
+        "seen_ids": seen_list,
         "last_check": datetime.now().isoformat(),
     })
     save_state(state)
