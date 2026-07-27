@@ -9,6 +9,11 @@ on:
         default: "false"
         type: choice
         options: ["true", "false"]
+  schedule:
+    # Cron.org only calls the webhook during 06:30-09:00 and 12:00-17:00
+    # GMT+7; this covers the 11:00-11:59 GMT+7 hour of the afternoon
+    # window. The script's own schedule gate makes extra fires harmless.
+    - cron: "*/5 4 * * 1-5"
 
 concurrency:
   group: check-notifications
