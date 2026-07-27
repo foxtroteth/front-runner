@@ -25,7 +25,7 @@ DEBUG=true python check_notifications.py
 
 The entire application lives in `check_notifications.py`. The execution flow is:
 
-1. **Schedule gate** (`is_in_schedule`): Exits immediately if called outside Mon–Fri 06:30–09:00 or 12:00–17:00 Jakarta time (GMT+7). This is the first check in `main()`.
+1. **Schedule gate** (`is_in_schedule`): Exits immediately if called outside Mon–Fri 06:30–09:00 or 11:00–17:00 Jakarta time (GMT+7). This is the first check in `main()`.
 
 2. **State management** (`load_state` / `save_state`): `state.json` is the persistence layer, committed back to the repo by GitHub Actions after each run. It holds:
    - `seen_ids`: MD5 hashes of already-sent notification IDs (capped at 200)
@@ -40,7 +40,7 @@ The entire application lives in `check_notifications.py`. The execution flow is:
 
 5. **Notification routing** (`notify`): Sends to ntfy and Discord concurrently via `asyncio.gather(..., return_exceptions=True)` — both channels are always attempted and failures are logged but not fatal.
 
-6. **End-of-day pickup detection** (`is_pickup_arrival`): If any unseen item contains "shuttle bus - release" or ("handed over" + "teraskota"), the bot sets `done_for_date` and pauses for the rest of the day.
+6. **End-of-day pickup detection** (`is_pickup_arrival`): If any unseen item contains "shuttle bus - release" or ("handed over" + "teraskota"), the bot sets `done_for_date` and pauses for the rest of the day. Both this and the school-arrival branch mark the *entire* visible feed as seen when they fire — after a backlog surfaces at once, a leftover unseen "arrived at school" item would otherwise fire a stale arrival + cooldown at the next morning's 06:30 run, every day.
 
 7. **School-arrival detection** (`is_school_arrival`): Matches "has arrived at" + "sekolah cikal", non-adjacent. The portal's wording changes between academic years (2025/26: "has arrived at Sekolah Cikal Serpong"; 2026/27: "has arrived at Campus A TK-SD - Sekolah Cikal Serpong") — but the matcher must never fire on the afternoon "has arrived at TerasKota" message, which is not a school arrival. A false positive here starts a 3-hour cooldown that suppresses all notifications, so prefer a miss (which still sends a generic notification) over a loose match.
 

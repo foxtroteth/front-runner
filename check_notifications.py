@@ -11,7 +11,7 @@ JAKARTA_TZ = timezone(timedelta(hours=7))
 # Mon-Fri only (weekday() 0=Mon … 4=Fri)
 SCHEDULE_WINDOWS = [
     (time(6, 30), time(9, 0)),    # morning:   06:30–09:00 GMT+7
-    (time(12, 0), time(17, 0)),   # afternoon: 12:00–17:00 GMT+7
+    (time(11, 0), time(17, 0)),   # afternoon: 11:00–17:00 GMT+7
 ]
 
 
@@ -138,6 +138,15 @@ async def notify(title: str, body: str = ""):
 def notif_id(item: dict) -> str:
     key = item.get("id") or item.get("text", "")
     return hashlib.md5(str(key).encode()).hexdigest()
+
+
+def mark_all_seen(items: list[dict], seen_ids: set, seen_list: list):
+    """Mark every currently visible item as seen (in feed order)."""
+    for it in items:
+        iid = notif_id(it)
+        if iid not in seen_ids:
+            seen_ids.add(iid)
+            seen_list.append(iid)
 
 
 async def _do_login(page) -> None:
@@ -444,8 +453,10 @@ async def main():
         nid = notif_id(item)
         text = item.get("text", "")
         if is_school_arrival(text) and nid not in seen_ids:
-            seen_ids.add(nid)
-            seen_list.append(nid)
+            # Mark the whole visible feed seen, not just this item: after a
+            # backlog surfaces at once (portal outage, agreement gate), any
+            # item left unseen here would fire a stale signal on a later run.
+            mark_all_seen(items, seen_ids, seen_list)
             cooldown_dt = datetime.now(JAKARTA_TZ) + timedelta(hours=3)
             state["cooldown_until"] = cooldown_dt.isoformat()
             state["seen_ids"] = seen_list
@@ -455,8 +466,11 @@ async def main():
             log.info("School arrival detected — cooling down until %s", cooldown_dt.isoformat())
             return
         if is_pickup_arrival(text) and nid not in seen_ids:
-            seen_ids.add(nid)
-            seen_list.append(nid)
+            # The day is over — mark everything currently in the feed as
+            # seen so this morning's backlogged "arrived at school" item
+            # can't fire a bogus arrival + 3h cooldown at tomorrow's 06:30
+            # run (which would eat the whole real morning window, daily).
+            mark_all_seen(items, seen_ids, seen_list)
             state["done_for_date"] = today_jkt()
             state["cooldown_until"] = None
             state["seen_ids"] = seen_list
