@@ -72,9 +72,16 @@ def is_pickup_arrival(text: str) -> bool:
 
 
 def is_school_arrival(text: str) -> bool:
-    """Morning signal: Kaia has arrived at school."""
+    """Morning signal: Kaia has arrived at school.
+
+    The wording changes between academic years — 2025/26 said
+    "has arrived at Sekolah Cikal Serpong at 07:21", 2026/27 says
+    "has arrived at Campus A TK-SD - Sekolah Cikal Serpong at 07:24" —
+    so don't require the two phrases to be adjacent. Must NOT match the
+    afternoon "has arrived at TerasKota" message.
+    """
     t = text.lower()
-    return "has arrived at sekolah cikal" in t
+    return "has arrived at" in t and "sekolah cikal" in t
 
 
 def load_state() -> dict:
@@ -136,7 +143,9 @@ def notif_id(item: dict) -> str:
 async def _do_login(page) -> None:
     """Fill and submit the login form. Raises if login fails."""
     log.info("Navigating to login page...")
-    await page.goto(LOGIN_URL, wait_until="networkidle", timeout=30_000)
+    # domcontentloaded, not networkidle: the portal keeps connections open
+    # (observed 2026-07-27), so networkidle never fires and goto times out
+    await page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=30_000)
 
     try:
         await page.wait_for_selector('input[type="password"]', timeout=20_000, state="visible")
@@ -195,8 +204,7 @@ async def _do_login(page) -> None:
         except Exception:
             pass
 
-    await page.wait_for_load_state("networkidle", timeout=20_000)
-    await asyncio.sleep(3)
+    await asyncio.sleep(8)
 
     current_url = page.url
     log.info("Post-login URL: %s", current_url)
@@ -249,38 +257,61 @@ async def scrape(state: dict) -> tuple[list[dict], list]:
 
         page.on("response", on_response)
 
+        page_errors: list[str] = []
+
+        async def load(url: str, label: str) -> None:
+            """goto + settle. domcontentloaded, not networkidle: the portal
+            keeps connections open (observed 2026-07-27), so networkidle
+            never fires. The XHRs we capture arrive during the sleep."""
+            try:
+                await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
+                await asyncio.sleep(6)
+            except Exception as exc:
+                page_errors.append(f"{label}: {exc}")
+                log.warning("%s failed to load: %s", label, exc)
+
         # Navigate to events page — doubles as session validity check
         log.info("Loading events page...")
-        await page.goto(EVENT_URL, wait_until="networkidle", timeout=30_000)
-        await asyncio.sleep(3)
+        await load(EVENT_URL, "events page")
 
         if "login" in page.url or "auth" in page.url:
             log.info("Session invalid — logging in fresh")
             await _do_login(page)
 
-            # Save new cookies so future runs skip login
+            # Save new cookies so future runs skip login. Written into state
+            # here (not only on success) so a run that logs in but then fails
+            # still persists the fresh session via the failure-path save_state.
             new_cookies = await context.cookies()
+            state["cookies"] = new_cookies
             log.info("Session saved (%d cookies)", len(new_cookies))
 
             # Revisit events page now that we're logged in
             log.info("Reloading events page after login...")
-            await page.goto(EVENT_URL, wait_until="networkidle", timeout=30_000)
-            await asyncio.sleep(4)
+            await load(EVENT_URL, "events page (after login)")
         else:
             log.info("Session valid — login skipped")
 
         if DEBUG:
             await page.screenshot(path="debug_03_events.png")
 
-        # Also hit the notifications page for the pickup-arrival signal
+        # Also hit the notifications page for the pickup-arrival signal.
+        # Attempted even if the events page failed — it carries the
+        # arrival/pickup signals, so it must not die with the events page.
         log.info("Loading notifications page...")
-        await page.goto(NOTIF_URL, wait_until="networkidle", timeout=30_000)
-        await asyncio.sleep(3)
+        await load(NOTIF_URL, "notifications page")
 
         if DEBUG:
             await page.screenshot(path="debug_04_notifications.png")
 
         await browser.close()
+
+    if not captured_api:
+        # A healthy run always captures at least the event feed (even when
+        # the notification feed is agreement-gated). Zero captures means a
+        # dead session, a broken portal, or too-slow page loads — count it
+        # as a failure so the 10-in-a-row Discord alert can fire.
+        detail = "; ".join(page_errors) if page_errors else "pages loaded but no matching XHR seen"
+        raise RuntimeError(f"no API responses captured: {detail}")
 
     items = extract_from_api(captured_api)
     return items, new_cookies
@@ -342,7 +373,11 @@ async def main():
 
     state = load_state()
     is_first_run = state.get("first_run", False)
-    seen_ids: set[str] = set(state.get("seen_ids", []))
+    # Keep seen_ids in insertion (chronological) order: the save_state cap
+    # drops the oldest entries, and stable ordering keeps the state.json
+    # diffs append-only instead of rewriting the whole list every run.
+    seen_list: list[str] = list(state.get("seen_ids", []))
+    seen_ids: set[str] = set(seen_list)
 
     # Skip if today's pickup already happened
     if state.get("done_for_date") == today_jkt() and not is_first_run:
@@ -365,19 +400,20 @@ async def main():
         err = str(exc)
         log.error("Scraping error: %s", err)
 
-        if "timeout" in err.lower():
-            log.info("Timeout — skipping silently.")
-            return
-
+        # Timeouts count as failures too: on 2026-07-27 the portal made
+        # networkidle unreachable and the old silent-skip path hid a whole
+        # morning of dead runs with green checkmarks and no alert.
         failures = state.get("consecutive_failures", 0) + 1
         state["consecutive_failures"] = failures
         save_state(state)
         log.info("Consecutive failures: %d", failures)
 
         if failures >= 10:
+            # Alert first, reset after: if Discord is down the counter stays
+            # >= 10 and the alert is retried on the next failing run
+            await send_discord(f"⚠️ **Cikal Bot Error** ({failures} consecutive failures)\n```\n{err}\n```")
             state["consecutive_failures"] = 0
             save_state(state)
-            await send_discord(f"⚠️ **Cikal Bot Error** (10 consecutive failures)\n```\n{err}\n```")
         raise SystemExit(1)
 
     # Successful scrape — reset failure counter
@@ -409,9 +445,10 @@ async def main():
         text = item.get("text", "")
         if is_school_arrival(text) and nid not in seen_ids:
             seen_ids.add(nid)
+            seen_list.append(nid)
             cooldown_dt = datetime.now(JAKARTA_TZ) + timedelta(hours=3)
             state["cooldown_until"] = cooldown_dt.isoformat()
-            state["seen_ids"] = list(seen_ids)
+            state["seen_ids"] = seen_list
             state["last_check"] = datetime.now().isoformat()
             save_state(state)
             await notify("🏫 Kaia has arrived at school", text[:800])
@@ -419,9 +456,10 @@ async def main():
             return
         if is_pickup_arrival(text) and nid not in seen_ids:
             seen_ids.add(nid)
+            seen_list.append(nid)
             state["done_for_date"] = today_jkt()
             state["cooldown_until"] = None
-            state["seen_ids"] = list(seen_ids)
+            state["seen_ids"] = seen_list
             state["last_check"] = datetime.now().isoformat()
             save_state(state)
             await notify(
@@ -437,7 +475,8 @@ async def main():
         nid = notif_id(item)
         if nid not in seen_ids:
             new_items.append(item)
-        seen_ids.add(nid)
+            seen_ids.add(nid)
+            seen_list.append(nid)
 
     if new_items:
         log.info("%d new notification(s)!", len(new_items))
@@ -448,7 +487,7 @@ async def main():
         log.info("No new notifications.")
 
     state.update({
-        "seen_ids": list(seen_ids),
+        "seen_ids": seen_list,
         "last_check": datetime.now().isoformat(),
     })
     save_state(state)
