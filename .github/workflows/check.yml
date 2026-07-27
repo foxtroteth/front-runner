@@ -74,6 +74,10 @@ jobs:
           if-no-files-found: ignore
 
       - name: Commit updated state
+        # !cancelled(): the script exits 1 on scrape failure AFTER writing
+        # consecutive_failures to state.json — that counter must still be
+        # committed or the 10-failure Discord alert can never fire
+        if: ${{ !cancelled() }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
