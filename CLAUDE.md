@@ -59,4 +59,4 @@ The entire application lives in `check_notifications.py`. The execution flow is:
 
 ## GitHub Actions workflow
 
-`.github/workflows/check.yml` — triggered only via `workflow_dispatch` (called by Cron.org). After the script runs, it commits any `state.json` changes back to `main` with `[skip ci]` to avoid loops. The `concurrency` group ensures overlapping runs queue rather than cancel.
+`.github/workflows/check.yml` — triggered via `workflow_dispatch` (called by Cron.org during 06:30–09:00 and 12:00–17:00 GMT+7) plus a built-in `schedule` cron covering the 11:00–11:59 GMT+7 hour that Cron.org doesn't call. After the script runs, it commits any `state.json` changes back to `main` with `[skip ci]` to avoid loops. The `concurrency` group ensures overlapping runs queue rather than cancel.
