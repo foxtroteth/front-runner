@@ -9,14 +9,6 @@ on:
         default: "false"
         type: choice
         options: ["true", "false"]
-  schedule:
-    # Cron.org only calls the webhook during 06:30-09:00 and 12:00-17:00
-    # GMT+7; this covers the 11:00-11:59 GMT+7 hour of the afternoon
-    # window. The script's own schedule gate makes extra fires harmless.
-    # Off-peak minutes on purpose: GitHub's scheduler heavily throttles
-    # crons on the */5 grid (observed 2026-07-28: "*/5 4 * * 1-5" never
-    # fired at all), and multiples of 5 are the most contended slots.
-    - cron: "2,8,14,20,26,32,38,44,50,56 4 * * 1-5"
 
 concurrency:
   group: check-notifications
