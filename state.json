@@ -129,33 +129,35 @@
     "aadf979e58d5fa1bd9f55ffffb524346",
     "e30c190506cfde9d10b52dfa933673c1",
     "ca29ebc06f1d68e56146cb92c5f00108",
-    "56f8cf30826f56d9ee0320f0f534b11f"
+    "56f8cf30826f56d9ee0320f0f534b11f",
+    "4787d5c828cf3858b3a27834487079ca",
+    "83800037bf1d61cffe82fb5deb1c9489"
   ],
   "first_run": false,
   "cookies": [
     {
       "name": "com_rt",
-      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflSlwTqeFzZlqzqsXzqK4ebs7TjeFTZxqcZxRTZUmzI3ylCACcamAlSJynjsXTq3XnjdAv_oDeaxCnSswnj61TjdyzjTOl9U2G7pEawUF3Y6CnCoRL_lOl9zqPRlfcZVO37pWM1bxNEdHhQtJhQD1l6S9VjSwJAdr5yajTHm4KKI2rlxl",
+      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflSUCzIVmTqdqeqrmeS6yzbTyzIKqTSoCe7oZzYsFTZsRlCACcamAlSJynjsXTq3XnjdAv_oDeaxCnSswnj6FTjlXzSTOl9U2G7pEawUF3Y6CnCoRL_lOl9zqPRlfcZVO37pWMebyr_FbF6zB5KT3XD-4ur60T_7NIkTla46O-olc0xK5",
       "domain": "community.cikal.co.id",
       "path": "/",
-      "expires": 1814374801.198837,
+      "expires": 1814374800.926983,
       "httpOnly": true,
       "secure": true,
       "sameSite": "Lax"
     },
     {
       "name": "com_at",
-      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflSlwTqeFzZlqzqsXzqK4ebs7TjeFTZxqcZxRTZUmzI3ylCACLazu3uWRcbeCnZF4PYAOlZp-3Yy2gbpuawoucClfP9pOP_AC3YVRcbFXawoucClfTIsAzIlOl9zXLbUuP9U.3ZpZlSDELbyOv_omPhp-PZu.3ZpZlSDELbyOv_oAeaoXPZpRawoucClfP9pOP_ACGbVXlSJyzq04njdATIxqv_oughdCnSswnj61TI0yzj3Ol9U2G7pEawUF3Y6CnComL_lOl9UF3Y6CnCoAeaouP9xCv_oq375CnZcmPhzu.xM3OP-S2IzaHiQEHG0SWcR113zm25VbfgJbyllhRtC_Rx",
+      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflSUCzIVmTqdqeqrmeS6yzbTyzIKqTSoCe7oZzYsFTZsRlCACLazu3uWRcbeCnZF4PYAOlZp-3Yy2gbpuawoucClfP9pOP_AC3YVRcbFXawoucClfTIsAzIlOl9zXLbUuP9U.3ZpZlSDELbyOv_omPhp-PZu.3ZpZlSDELbyOv_oAeaoXPZpRawoucClfP9pOP_ACGbVXlSJyzq04nIdRzjeqv_oughdCnSswnj6FTSdXzS3Ol9U2G7pEawUF3Y6CnComL_lOl9UF3Y6CnCoAeaouP9xCv_oq375CnZcmPhzu.xM6h8Td.iEbZEUk9tqz7ZHeQeBw3IGe860jQZBSEsn3v5",
       "domain": "community.cikal.co.id",
       "path": "/",
-      "expires": 1785818147.417752,
+      "expires": 1785920467.418137,
       "httpOnly": true,
       "secure": true,
       "sameSite": "Lax"
     }
   ],
-  "last_check": "2026-08-04T01:15:55.778651",
+  "last_check": "2026-08-05T04:01:23.116324",
   "done_for_date": "2026-08-03",
-  "consecutive_failures": 1,
-  "cooldown_until": null
+  "consecutive_failures": 0,
+  "cooldown_until": "2026-08-05T14:01:23.116304+07:00"
 }
