@@ -145,26 +145,26 @@
   "cookies": [
     {
       "name": "com_rt",
-      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflScmcYzCcjpZcSLZeZeycSrCnYeXzIlXnIzmebTAzbzSlCACcamAlSJynjsXTq3XnjdAv_oDeaxCnSswnj6FnIsRzj0Ol9U2G7pEawUF3Y6CnCoRL_lOl9zqPRlfcZVO37pWMLTG3vNjELgt5NuiU9eaGwyCoYBZJ2TjJH8Wu2A5klcO",
+      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflZswcY6RzZpZTZVmcjVZzSd4cZpZeIcme7xqnjumnjcZlCACcamAlSJynjsXTq3XnjdAv_oDeaxCnSswnjeAzIKqzj6Ol9U2G7pEawUF3Y6CnCoRL_lOl9zqPRlfcZVO37pWM1A6TsI01NqjZvbdWPsW8inCF9uTAf2cshuePVCyfW.6",
       "domain": "community.cikal.co.id",
       "path": "/",
-      "expires": 1814374801.302894,
+      "expires": 1814374801.02903,
       "httpOnly": true,
       "secure": true,
       "sameSite": "Lax"
     },
     {
       "name": "com_at",
-      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflScmcYzCcjpZcSLZeZeycSrCnYeXzIlXnIzmebTAzbzSlCACLazu3uWRcbeCnZF4PYAOlZp-3Yy2gbpuawoucClfP9pOP_AC3YVRcbFXawoucClfTIsAzIlOl9zXLbUuP9U.3ZpZlSDELbyOv_omPhp-PZu.3ZpZlSDELbyOv_oAeaoXPZpRawoucClfP9pOP_ACGbVXlSJyzq04nIKyTSx1v_oughdCnSswnjeATjKRzIsOl9U2G7pEawUF3Y6CnComL_lOl9UF3Y6CnCoAeaouP9xCv_oq375CnZcmPhzu.xMpc0IDBDATsiRVlDBLw.64zjW7h3mvGuVoe6nny828-d",
+      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflZswcY6RzZpZTZVmcjVZzSd4cZpZeIcme7xqnjumnjcZlCACLazu3uWRcbeCnZF4PYAOlZp-3Yy2gbpuawoucClfP9pOP_AC3YVRcbFXawoucClfTIsAzIlOl9zXLbUuP9U.3ZpZlSDELbyOv_omPhp-PZu.3ZpZlSDELbyOv_oAeaoXPZpRawoucClfP9pOP_ACGbVXlSJyzq07Tj6FTqx4v_oughdCnSswnjeAzq3qzjKOl9U2G7pEawUF3Y6CnComL_lOl9UF3Y6CnCoAeaouP9xCv_oq375CnZcmPhzu.xMTEIQsILrZ..tOwKV8B_ya3FP_dBfQZvjVGIvRw6OmH3",
       "domain": "community.cikal.co.id",
       "path": "/",
-      "expires": 1786009252.093985,
+      "expires": 1786077350.096803,
       "httpOnly": true,
       "secure": true,
       "sameSite": "Lax"
     }
   ],
-  "last_check": "2026-08-06T23:31:03.213339",
+  "last_check": "2026-08-06T23:36:05.084954",
   "done_for_date": "2026-08-06",
   "consecutive_failures": 0,
   "cooldown_until": null
