@@ -140,7 +140,8 @@
     "341d0b875e8e1568c6d1c34e1b948524",
     "b1109a588be20afa6511eb99e13b29f7",
     "5506ea76ffd1d96615e39af3d888d0fd",
-    "d53cc227c6a2394ae1e7c6ce86142c02"
+    "d53cc227c6a2394ae1e7c6ce86142c02",
+    "8862811a116c738e72efce60b8d97ab4"
   ],
   "first_run": false,
   "cookies": [
@@ -165,8 +166,8 @@
       "sameSite": "Lax"
     }
   ],
-  "last_check": "2026-08-07T00:01:09.170809",
+  "last_check": "2026-08-07T00:05:53.648455",
   "done_for_date": "2026-08-06",
   "consecutive_failures": 0,
-  "cooldown_until": null
+  "cooldown_until": "2026-08-07T10:05:53.648431+07:00"
 }
