@@ -207,7 +207,7 @@
       "sameSite": "Lax"
     }
   ],
-  "last_check": "2026-08-20T08:01:11.138896",
+  "last_check": "2026-08-20T08:05:45.087779",
   "done_for_date": "2026-08-19",
   "consecutive_failures": 0,
   "cooldown_until": "2026-08-20T10:05:49.357498+07:00"
