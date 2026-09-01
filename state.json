@@ -1,6 +1,5 @@
 {
   "seen_ids": [
-    "7f71e0b93978fc569f8694f49b26801e",
     "3e615ddd98e7d1b4724b976119853aa8",
     "739e1cff97db8f536793c9272cf215b9",
     "b7d71b108920231b62942d88ffd501dd",
@@ -199,7 +198,8 @@
     "82f534cee3378ac73a4ef3b0de887151",
     "d6d9f6da1163689810eff3824e87fd43",
     "5050fe18270db8b0ef576e9a9f6eb094",
-    "5dc5eb81858feec94aecc3520bc7fe71"
+    "5dc5eb81858feec94aecc3520bc7fe71",
+    "1609ddf34f7387d761bc798afe0a21f2"
   ],
   "first_run": false,
   "cookies": [
@@ -224,8 +224,8 @@
       "sameSite": "Lax"
     }
   ],
-  "last_check": "2026-09-01T07:25:54.191063",
-  "done_for_date": "2026-08-28",
+  "last_check": "2026-09-01T07:31:05.418607",
+  "done_for_date": "2026-09-01",
   "consecutive_failures": 0,
   "cooldown_until": null
 }
