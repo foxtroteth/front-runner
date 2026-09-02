@@ -3,8 +3,8 @@ name: Check Cikal Notifications
 on:
   workflow_dispatch:
     inputs:
-      debug:
-        description: "Enable debug mode (saves screenshots as artifacts)"
+      force:
+        description: "Bypass the schedule window and run the check now"
         required: false
         default: "false"
         type: choice
@@ -37,24 +37,10 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Get Playwright version
-        id: playwright-version
-        run: echo "version=$(pip show playwright | grep ^Version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browser
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-
-      - name: Install Playwright Chromium system dependencies
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: playwright install --with-deps chromium
-
-      - name: Install Playwright Chromium (from cache, binary only)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: playwright install chromium
+      - name: Portal reachability probe (diagnostic, non-fatal)
+        run: |
+          curl -sS -m 15 -o /dev/null -w "portal:  HTTP %{http_code} in %{time_total}s (ip %{remote_ip})\n" https://community.cikal.co.id/ || echo "portal:  UNREACHABLE (curl exit $?)"
+          curl -sS -m 15 -o /dev/null -w "control: HTTP %{http_code} in %{time_total}s\n" https://www.google.com/ || echo "control: UNREACHABLE (curl exit $?)"
 
       - name: Portal reachability probe (diagnostic, non-fatal)
         run: |
@@ -67,16 +53,8 @@ jobs:
           CIKAL_PASSWORD: ${{ secrets.CIKAL_PASSWORD }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          DEBUG: ${{ github.event.inputs.debug || 'false' }}
+          FORCE_RUN: ${{ github.event.inputs.force || 'false' }}
         run: python check_notifications.py
-
-      - name: Upload screenshots
-        if: ${{ always() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: screenshots-${{ github.run_id }}
-          path: debug_*.png
-          if-no-files-found: ignore
 
       - name: Commit updated state
         # !cancelled(): the script exits 1 on scrape failure AFTER writing

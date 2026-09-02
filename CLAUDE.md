@@ -13,13 +13,11 @@ cp .env.example .env
 # fill in .env with real credentials
 
 pip install -r requirements.txt
-playwright install chromium
-playwright install-deps chromium
 
-DEBUG=true python check_notifications.py
+python check_notifications.py
 ```
 
-`DEBUG=true` saves screenshots (`debug_*.png`) at each browser step — these are gitignored and also uploaded as workflow artifacts in CI.
+The bot talks to the portal over plain HTTP (`httpx`) — there is no browser to install.
 
 ## Architecture
 
@@ -29,14 +27,15 @@ The entire application lives in `check_notifications.py`. The execution flow is:
 
 2. **State management** (`load_state` / `save_state`): `state.json` is the persistence layer, committed back to the repo by GitHub Actions after each run. It holds:
    - `seen_ids`: MD5 hashes of already-sent notification IDs (capped at 200)
-   - `cookies`: saved Playwright session cookies to avoid re-logging in every run
+   - `cookies`: saved session cookies (`com_at`/`com_rt`) to avoid re-logging in every run
    - `first_run`: flag that silently marks all existing items as seen on the very first execution
    - `done_for_date`: ISO date string set when the end-of-day pickup signal is detected; skips all further checks that day
    - `consecutive_failures`: counter that triggers a Discord alert after 10 scraping failures in a row
+   - `last_alert_at`: timestamp throttling the failure alert to at most one per 3h
 
-3. **Scraping** (`scrape`): Launches a headless Chromium browser via Playwright. Session cookies from `state.json` are injected first; if the portal redirects to login, `_do_login` fills the form and saves fresh cookies back to state. The bot visits two pages: `EVENT_URL` and `NOTIF_URL`. A `response` listener intercepts all XHR/fetch calls whose URLs contain keywords from `API_URL_KEYWORDS`, parses them as JSON, and collects them in `captured_api`.
+3. **Scraping** (`scrape`): Talks to the portal's JSON API directly over plain HTTP (`httpx`) — no browser. **Why no browser:** on 2026-09-02 the portal began blackholing headless-Chromium TLS connections from datacenter IPs (from the same GitHub runner, `curl` got HTTP 200 in ~1s while Playwright Chromium timed out after 30s), but plain HTTP clients still work. Saved `com_at`/`com_rt` cookies from `state.json` are loaded into an `httpx` cookie jar; the `EVENT_API_URL` feed doubles as the session-validity probe. If it doesn't come back feed-shaped (`_looks_like_feed`), `_http_login` reads the JWT CSRF token from `<meta name="csrf-token">` on `/auth` and POSTs credentials to `/auth/login` (JSON body, `X-CSRF-TOKEN` header, one attempt — never re-submitted, to avoid account lockout), persisting fresh cookies. It then fetches `NOTIF_API_URL` and collects both feeds in `captured_api`.
 
-4. **Extraction** (`extract_from_api`): Walks the captured API responses looking for list-shaped data under common keys (`data`, `notifications`, `items`, `results`, `list`, `events`). Event-URL responses are sorted first. Each item is deduplicated by `source_url:id`.
+4. **Extraction** (`extract_from_api`): Walks the captured API responses looking for list-shaped data under the keys in `FEED_LIST_KEYS` (`data`, `notifications`, `items`, `results`, `list`, `events`) — the same keys `_looks_like_feed` uses, so session-validity and extraction never disagree. Event-URL responses are sorted first. Each item is deduplicated by `source_url:id`.
 
 5. **Notification routing** (`notify`): Sends to ntfy and Discord concurrently via `asyncio.gather(..., return_exceptions=True)` — both channels are always attempted and failures are logged but not fatal.
 
@@ -44,7 +43,9 @@ The entire application lives in `check_notifications.py`. The execution flow is:
 
 7. **School-arrival detection** (`is_school_arrival`): Matches "has arrived at" + "sekolah cikal", non-adjacent. The portal's wording changes between academic years (2025/26: "has arrived at Sekolah Cikal Serpong"; 2026/27: "has arrived at Campus A TK-SD - Sekolah Cikal Serpong") — but the matcher must never fire on the afternoon "has arrived at TerasKota" message, which is not a school arrival. A false positive here starts a 3-hour cooldown that suppresses all notifications, so prefer a miss (which still sends a generic notification) over a loose match.
 
-**Known gotcha — start of a new academic year:** the portal gates the parent's notification feed behind the new "Parents Handbook" agreement. While the agreement is pending, the notification-feed XHR produces no capturable JSON response at all (runs log "Extracted 0 unique items from 1 API responses" — only the event feed is captured), so the bot goes silent even though shuttle notifications are being generated with their real timestamps. The moment the parent accepts the agreement in the portal/app, the feed reappears and the backlog is sent (observed 2026-07-22: acceptance at 08:17, feed captured again at the 08:20 run). Accept the agreement on day one of each school year.
+**Known gotcha — start of a new academic year:** the portal gates the parent's notification feed behind the new "Parents Handbook" agreement. While the agreement is pending, the notification feed returns nothing usable (only the event feed comes back), so the bot goes silent even though shuttle notifications are being generated with their real timestamps. The moment the parent accepts the agreement in the portal/app, the feed reappears and the backlog is sent (observed 2026-07-22: acceptance at 08:17, feed captured again at the 08:20 run). Accept the agreement on day one of each school year.
+
+**Known gotcha — portal bot-protection:** the portal blocks automated *browsers* from datacenter IPs but not plain HTTP clients, which is why the scraper uses `httpx` and not Playwright (see step 3). If notifications stop and the failure alert cites connection timeouts, first check whether the `Portal reachability probe` step in the workflow still shows `curl` reaching the portal — if `curl` works but the script fails, the login flow or an API path likely changed.
 
 ## Required secrets (GitHub Actions)
 
