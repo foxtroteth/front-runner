@@ -418,15 +418,30 @@ async def main():
         log.info("Consecutive failures: %d", failures)
 
         if failures >= 10:
-            # Alert first, reset after: if Discord is down the counter stays
-            # >= 10 and the alert is retried on the next failing run
-            await send_discord(f"⚠️ **Cikal Bot Error** ({failures} consecutive failures)\n```\n{err}\n```")
-            state["consecutive_failures"] = 0
-            save_state(state)
+            # Re-alert at most every 3h: a long portal outage (2026-09-02
+            # produced 5 alerts in one day) should not flood Discord. The
+            # counter keeps climbing so the alert shows outage length.
+            last_alert = state.get("last_alert_at")
+            recently_alerted = last_alert and (
+                datetime.now(JAKARTA_TZ) - datetime.fromisoformat(last_alert)
+                < timedelta(hours=3)
+            )
+            if not recently_alerted:
+                await send_discord(
+                    f"⚠️ **Cikal Bot Error** ({failures} consecutive failures, "
+                    f"~{failures * 5} min)\n```\n{err[:500]}\n```"
+                )
+                state["last_alert_at"] = datetime.now(JAKARTA_TZ).isoformat()
+                save_state(state)
         raise SystemExit(1)
 
     # Successful scrape — reset failure counter
     state["consecutive_failures"] = 0
+    if state.pop("last_alert_at", None):
+        try:
+            await send_discord("✅ **Cikal Bot recovered** — portal reachable again")
+        except Exception as exc:
+            log.error("Recovery notice failed: %s", exc)
 
     # Persist updated cookies if login was needed
     if new_cookies:
