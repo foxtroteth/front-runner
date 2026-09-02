@@ -65,13 +65,13 @@ You should get an ntfy push notification and a Discord message: "✅ Cikal Schoo
 ## How it works
 
 - Cron.org triggers the GitHub Actions workflow on your configured schedule
-- The script logs in with Playwright (headless Chrome), loads the notifications page, and checks for new items
+- The script logs in over plain HTTP and reads the portal's notification/event JSON APIs directly (no browser — the portal blocks automated browsers from datacenter IPs)
 - New notifications are sent to your iPhone via ntfy, with Discord as a backup
 - `state.json` tracks which notifications have already been sent (committed back to the repo)
 
 ## Debugging
 
-Run the workflow manually with **debug = true** to get screenshots of what the browser sees at each step. Screenshots are saved as workflow artifacts.
+Each workflow run includes a **Portal reachability probe** step that `curl`s the portal and a control site — check it first if runs start failing. If `curl` reaches the portal but the script still fails, the login flow or an API path likely changed. The failure alert (see below) fires in Discord after 10 consecutive failures.
 
 ## Local testing
 
@@ -80,8 +80,6 @@ cp .env.example .env
 # fill in .env with your real credentials
 
 pip install -r requirements.txt
-playwright install chromium
-playwright install-deps chromium
 
-DEBUG=true python check_notifications.py
+python check_notifications.py
 ```

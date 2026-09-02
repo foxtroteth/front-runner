@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import asyncio
 import hashlib
@@ -28,7 +29,6 @@ def is_in_schedule() -> bool:
 
 
 import httpx
-from playwright.async_api import async_playwright
 
 logging.basicConfig(
     level=logging.INFO,
@@ -45,18 +45,33 @@ NTFY_URL = os.environ.get("NTFY_URL", "https://ntfy.sh")
 STATE_FILE = Path("state.json")
 DEBUG = os.environ.get("DEBUG", "").lower() == "true"
 
-LOGIN_URL = "https://community.cikal.co.id/auth#/login"
-NOTIF_URL = "https://community.cikal.co.id/parent#/notification/index"
-EVENT_URL = "https://community.cikal.co.id/parent#/event/index"
+# The portal blackholes headless-browser TLS connections from datacenter IPs
+# (observed 2026-09-02: from the same GitHub runner, curl gets HTTP 200 in
+# ~1s while headless Chromium times out after 30s), but plain HTTP clients
+# still work — so the bot talks to the JSON API directly instead of driving
+# a browser. Auth is a Laravel-style form POST to /login with an X-CSRF-TOKEN
+# read from the login page's <meta name="csrf-token">.
+BASE_URL = "https://community.cikal.co.id"
+LOGIN_PAGE_URL = f"{BASE_URL}/auth"        # SPA shell carrying the csrf-token meta
+LOGIN_POST_URL = f"{BASE_URL}/auth/login"  # JSON login endpoint
+EVENT_API_URL = f"{BASE_URL}/parent/event/index?load=json"
+NOTIF_API_URL = f"{BASE_URL}/parent/notification/index?load=json&p=1&l=10"
+
+USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
+# Keys under which the portal nests its list-shaped feed payloads. Used both
+# to decide a session is valid (the feed came back as a real feed, not an
+# auth-error envelope like {"errors":[...]}) and to extract items.
+FEED_LIST_KEYS = ("data", "notifications", "items", "results", "list", "events")
 
 EVENT_KEYWORDS = [
     "event", "acara", "kegiatan", "workshop", "seminar", "webinar",
     "festival", "lomba", "competition", "pameran", "exhibition",
     "pelatihan", "training", "gathering", "bazaar", "bazar",
 ]
-
-API_URL_KEYWORDS = ["notification", "notif", "activity", "news", "event"]
-
 
 def is_event_notification(text: str) -> bool:
     t = text.lower()
@@ -149,178 +164,166 @@ def mark_all_seen(items: list[dict], seen_ids: set, seen_list: list):
             seen_list.append(iid)
 
 
-async def _do_login(page) -> None:
-    """Fill and submit the login form. Raises if login fails."""
-    log.info("Navigating to login page...")
-    # domcontentloaded, not networkidle: the portal keeps connections open
-    # (observed 2026-07-27), so networkidle never fires and goto times out
-    await page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=30_000)
+def _cookies_to_state(client: httpx.AsyncClient) -> list:
+    """Dump the client's cookie jar to the list-of-dicts shape state.json uses."""
+    out = []
+    for c in client.cookies.jar:
+        out.append({
+            "name": c.name,
+            "value": c.value,
+            "domain": c.domain or "community.cikal.co.id",
+            "path": c.path or "/",
+        })
+    return out
 
+
+async def _http_login(client: httpx.AsyncClient) -> None:
+    """Log in over plain HTTP (no browser). Raises if login fails.
+
+    Reads the JWT CSRF token from the login page's <meta name="csrf-token">
+    and POSTs credentials to /auth/login. Tries a JSON body first (the SPA
+    uses axios), then falls back to a form-encoded body; success is detected
+    by the portal returning its session cookie (com_at) or a 200.
+    """
+    log.info("Logging in over HTTP...")
+    r0 = await client.get(LOGIN_PAGE_URL)
+    m = re.search(r'<meta name="csrf-token" content="([^"]+)"', r0.text)
+    if not m:
+        raise RuntimeError(
+            f"CSRF token not found on login page (HTTP {r0.status_code}, {len(r0.text)} bytes)"
+        )
+    csrf = m.group(1)
+
+    headers = {
+        "X-CSRF-TOKEN": csrf,
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": LOGIN_PAGE_URL,
+        "Origin": BASE_URL,
+        "Accept": "application/json, text/plain, */*",
+    }
+
+    # Single JSON POST — the exact shape the SPA sends (verified 2026-09-02:
+    # /auth/login accepts it and returns 401 {"errors":[...]} on bad creds).
+    # One attempt only: never re-submit the same credentials, so a wrong
+    # password can't hammer the account toward a lockout. Success = the portal
+    # hands back its session cookie (com_at) or a 200; the caller re-probes the
+    # feed afterwards, so a false 200 can't slip through as a real session.
+    r = await client.post(
+        LOGIN_POST_URL,
+        json={"email": CIKAL_USERNAME, "password": CIKAL_PASSWORD, "remember": True},
+        headers=headers,
+    )
+    if "com_at" in client.cookies or r.status_code == 200:
+        log.info("Login accepted (HTTP %s, %d cookies)", r.status_code, len(client.cookies))
+        return
+    raise RuntimeError(f"Login failed (HTTP {r.status_code}): {r.text[:200]}")
+
+
+def _looks_like_feed(data) -> bool:
+    """True when the payload is a real feed (a list, or a dict nesting one
+    under a known key) rather than an auth-error envelope like
+    {"errors":[...]} / {"message":"Unauthenticated"}. Aligning the
+    session-validity check with what extract_from_api can actually read stops
+    an expired session that returns an error-JSON 200 from being mistaken for
+    a valid one (which would reset the failure counter and go silent)."""
+    if isinstance(data, list):
+        return True
+    if isinstance(data, dict):
+        return any(isinstance(data.get(k), list) for k in FEED_LIST_KEYS)
+    return False
+
+
+async def _fetch_json(client: httpx.AsyncClient, url: str, label: str):
+    """GET a portal JSON feed. Returns parsed JSON, or None when the response
+    is empty/HTML — which is what the portal returns when the session is not
+    authenticated (observed 2026-09-02: HTTP 200, 0 bytes)."""
     try:
-        await page.wait_for_selector('input[type="password"]', timeout=20_000, state="visible")
-    except Exception:
-        await page.screenshot(path="debug_01_login.png")
-        log.info("Page HTML head:\n%s", (await page.content())[:3000])
-        raise RuntimeError("Login form never rendered — page may have changed or blocked us")
+        r = await client.get(url, headers={
+            "X-Requested-With": "XMLHttpRequest",
+            "Referer": f"{BASE_URL}/parent",
+            "Accept": "application/json, text/plain, */*",
+        })
+    except Exception as exc:
+        log.warning("%s request failed: %s", label, exc)
+        return None
 
-    await asyncio.sleep(1)
-
-    if DEBUG:
-        await page.screenshot(path="debug_01_login.png")
-
-    filled = False
-    for sel in [
-        'input[inputmode="email"]',
-        'input[placeholder="User Name"]',
-        'input[placeholder*="user name" i]',
-        'input[type="email"]',
-        'input[name="email"]',
-        'input[name="username"]',
-        'form input.input:not([type="password"])',
-    ]:
+    body = r.text.strip()
+    if r.status_code == 200 and body[:1] in ("[", "{"):
         try:
-            await page.fill(sel, CIKAL_USERNAME, timeout=3_000)
-            log.info("Email field: %s", sel)
-            filled = True
-            break
-        except Exception:
-            pass
+            data = r.json()
+            log.info("Fetched %s (%d bytes)", label, len(r.text))
+            return data
+        except Exception as exc:
+            log.warning("%s returned non-JSON: %s", label, exc)
+            return None
 
-    if not filled:
-        await page.screenshot(path="debug_01_login.png")
-        raise RuntimeError("Could not find email/username input on login page")
-
-    for sel in ['input[type="password"]', 'input[placeholder="password"]', 'input[name="password"]']:
-        try:
-            await page.fill(sel, CIKAL_PASSWORD, timeout=3_000)
-            log.info("Password field: %s", sel)
-            break
-        except Exception:
-            pass
-
-    for sel in [
-        'button:has-text("Sign In")',
-        'button:has-text("Sign in")',
-        'button[type="submit"]',
-        'button:has-text("Login")',
-        'button:has-text("Masuk")',
-        'input[type="submit"]',
-    ]:
-        try:
-            await page.click(sel, timeout=3_000)
-            log.info("Submit button: %s", sel)
-            break
-        except Exception:
-            pass
-
-    await asyncio.sleep(8)
-
-    current_url = page.url
-    log.info("Post-login URL: %s", current_url)
-    if "login" in current_url or "auth" in current_url:
-        if DEBUG:
-            await page.screenshot(path="debug_02_login_fail.png")
-        raise RuntimeError(f"Login failed — still at: {current_url}")
+    log.info("%s empty/HTML (HTTP %s, %d bytes) — session likely invalid",
+             label, r.status_code, len(r.text))
+    return None
 
 
 async def scrape(state: dict) -> tuple[list[dict], list]:
     """
-    Login (or reuse saved session) then scrape events + notifications.
-    Returns (items, new_cookies).
-    new_cookies is [] when the existing session was still valid.
+    Fetch events + notifications over plain HTTP (no browser).
+    Returns (items, new_cookies); new_cookies is [] when the saved session
+    was reused.
     """
     captured_api: list[dict] = []
     new_cookies: list = []
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"],
-        )
-        context = await browser.new_context(
-            viewport={"width": 1280, "height": 800},
-            user_agent=(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-        )
+    jar = httpx.Cookies()
+    for c in state.get("cookies", []):
+        try:
+            jar.set(c["name"], c["value"],
+                    domain=c.get("domain", "community.cikal.co.id"),
+                    path=c.get("path", "/"))
+        except Exception:
+            pass
+    if state.get("cookies"):
+        log.info("Loaded %d saved cookies — will test session validity", len(state["cookies"]))
 
-        # Restore saved session cookies
-        saved_cookies = state.get("cookies", [])
-        if saved_cookies:
-            await context.add_cookies(saved_cookies)
-            log.info("Loaded %d saved cookies — will test session validity", len(saved_cookies))
-
-        page = await context.new_page()
-
-        async def on_response(response):
-            url = response.url
-            if response.status == 200 and any(k in url.lower() for k in API_URL_KEYWORDS):
-                try:
-                    data = await response.json()
-                    captured_api.append({"url": url, "data": data})
-                    log.info("Captured API: %s", url)
-                except Exception:
-                    pass
-
-        page.on("response", on_response)
-
-        page_errors: list[str] = []
-
-        async def load(url: str, label: str) -> None:
-            """goto + settle. domcontentloaded, not networkidle: the portal
-            keeps connections open (observed 2026-07-27), so networkidle
-            never fires. The XHRs we capture arrive during the sleep."""
-            try:
-                await page.goto(url, wait_until="domcontentloaded", timeout=30_000)
-                await asyncio.sleep(6)
-            except Exception as exc:
-                page_errors.append(f"{label}: {exc}")
-                log.warning("%s failed to load: %s", label, exc)
-
-        # Navigate to events page — doubles as session validity check
-        log.info("Loading events page...")
-        await load(EVENT_URL, "events page")
-
-        if "login" in page.url or "auth" in page.url:
+    async with httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=30,
+        headers={"User-Agent": USER_AGENT},
+        cookies=jar,
+    ) as client:
+        # The event feed is the session-validity probe: it comes back as a
+        # real feed whenever logged in (unlike the notification feed, which
+        # can be empty while a start-of-year agreement is pending). A response
+        # that isn't feed-shaped (empty, HTML, or an auth-error envelope)
+        # means the session is dead — log in fresh.
+        event = await _fetch_json(client, EVENT_API_URL, "events")
+        if not _looks_like_feed(event):
             log.info("Session invalid — logging in fresh")
-            await _do_login(page)
-
-            # Save new cookies so future runs skip login. Written into state
-            # here (not only on success) so a run that logs in but then fails
-            # still persists the fresh session via the failure-path save_state.
-            new_cookies = await context.cookies()
+            await _http_login(client)
+            # Persist fresh cookies immediately (not only on full success) so
+            # a run that logs in but later fails still keeps the new session.
+            new_cookies = _cookies_to_state(client)
             state["cookies"] = new_cookies
             log.info("Session saved (%d cookies)", len(new_cookies))
-
-            # Revisit events page now that we're logged in
-            log.info("Reloading events page after login...")
-            await load(EVENT_URL, "events page (after login)")
+            event = await _fetch_json(client, EVENT_API_URL, "events")
         else:
             log.info("Session valid — login skipped")
 
-        if DEBUG:
-            await page.screenshot(path="debug_03_events.png")
+        # The notification feed carries the arrival/pickup signals; fetch it
+        # even if the event feed came back empty.
+        notif = await _fetch_json(client, NOTIF_API_URL, "notifications")
 
-        # Also hit the notifications page for the pickup-arrival signal.
-        # Attempted even if the events page failed — it carries the
-        # arrival/pickup signals, so it must not die with the events page.
-        log.info("Loading notifications page...")
-        await load(NOTIF_URL, "notifications page")
-
-        if DEBUG:
-            await page.screenshot(path="debug_04_notifications.png")
-
-        await browser.close()
+        # Append only feed-shaped payloads: an error envelope must not count
+        # as a captured response, or the run would look successful (counter
+        # reset, no alert) while delivering nothing.
+        if _looks_like_feed(event):
+            captured_api.append({"url": EVENT_API_URL, "data": event})
+        if _looks_like_feed(notif):
+            captured_api.append({"url": NOTIF_API_URL, "data": notif})
 
     if not captured_api:
         # A healthy run always captures at least the event feed (even when
         # the notification feed is agreement-gated). Zero captures means a
-        # dead session, a broken portal, or too-slow page loads — count it
-        # as a failure so the 10-in-a-row Discord alert can fire.
-        detail = "; ".join(page_errors) if page_errors else "pages loaded but no matching XHR seen"
-        raise RuntimeError(f"no API responses captured: {detail}")
+        # failed login or an unreachable portal — count it as a failure so
+        # the 10-in-a-row Discord alert can fire.
+        raise RuntimeError("no API responses captured (login failed or portal unreachable)")
 
     items = extract_from_api(captured_api)
     return items, new_cookies
@@ -342,7 +345,7 @@ def extract_from_api(api_data: list[dict]) -> list[dict]:
         if isinstance(data, list):
             candidates = data
         elif isinstance(data, dict):
-            for key in ("data", "notifications", "items", "results", "list", "events"):
+            for key in FEED_LIST_KEYS:
                 v = data.get(key)
                 if isinstance(v, list) and len(v) > 0:
                     candidates = v
