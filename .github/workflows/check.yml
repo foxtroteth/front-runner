@@ -56,6 +56,11 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: playwright install chromium
 
+      - name: Portal reachability probe (diagnostic, non-fatal)
+        run: |
+          curl -sS -m 15 -o /dev/null -w "portal:  HTTP %{http_code} in %{time_total}s (ip %{remote_ip})\n" https://community.cikal.co.id/ || echo "portal:  UNREACHABLE (curl exit $?)"
+          curl -sS -m 15 -o /dev/null -w "control: HTTP %{http_code} in %{time_total}s\n" https://www.google.com/ || echo "control: UNREACHABLE (curl exit $?)"
+
       - name: Run notification check
         env:
           CIKAL_USERNAME: ${{ secrets.CIKAL_USERNAME }}
