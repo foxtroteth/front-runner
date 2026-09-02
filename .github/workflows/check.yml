@@ -3,8 +3,8 @@ name: Check Cikal Notifications
 on:
   workflow_dispatch:
     inputs:
-      debug:
-        description: "Enable debug mode (saves screenshots as artifacts)"
+      force:
+        description: "Bypass the schedule window and run the check now"
         required: false
         default: "false"
         type: choice
@@ -48,7 +48,7 @@ jobs:
           CIKAL_PASSWORD: ${{ secrets.CIKAL_PASSWORD }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          DEBUG: ${{ github.event.inputs.debug || 'false' }}
+          FORCE_RUN: ${{ github.event.inputs.force || 'false' }}
         run: python check_notifications.py
 
       - name: Commit updated state

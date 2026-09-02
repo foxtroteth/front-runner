@@ -43,7 +43,6 @@ DISCORD_WEBHOOK_URL = os.environ["DISCORD_WEBHOOK_URL"]
 NTFY_TOPIC = os.environ["NTFY_TOPIC"]
 NTFY_URL = os.environ.get("NTFY_URL", "https://ntfy.sh")
 STATE_FILE = Path("state.json")
-DEBUG = os.environ.get("DEBUG", "").lower() == "true"
 
 # The portal blackholes headless-browser TLS connections from datacenter IPs
 # (observed 2026-09-02: from the same GitHub runner, curl gets HTTP 200 in
@@ -379,9 +378,12 @@ def extract_from_api(api_data: list[dict]) -> list[dict]:
 
 
 async def main():
+    force = os.environ.get("FORCE_RUN", "").lower() == "true"
     if not is_in_schedule():
-        log.info("Outside schedule window — skipping.")
-        return
+        if not force:
+            log.info("Outside schedule window — skipping.")
+            return
+        log.info("FORCE_RUN set — running outside the schedule window.")
 
     state = load_state()
     is_first_run = state.get("first_run", False)
