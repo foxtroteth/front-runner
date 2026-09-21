@@ -212,6 +212,6 @@
   ],
   "last_check": "2026-09-21T05:45:42.178890",
   "done_for_date": "2026-09-18",
-  "consecutive_failures": 0,
+  "consecutive_failures": 1,
   "cooldown_until": "2026-09-21T09:40:36.458061+07:00"
 }
