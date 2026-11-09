@@ -1,6 +1,5 @@
 {
   "seen_ids": [
-    "5dc5eb81858feec94aecc3520bc7fe71",
     "1609ddf34f7387d761bc798afe0a21f2",
     "628a562bc37ea43cc20e85c358b97968",
     "ae08a43a146bc7ff9a125d0594195888",
@@ -199,18 +198,19 @@
     "e425f59b71f98f1ad2815995c5f41232",
     "db07465fe7caf8b255e667235d388164",
     "f6a066c7f638e48dcdc53a26142c8d14",
-    "dd45a74981fe3d7ce642d31f7f8ac6af"
+    "dd45a74981fe3d7ce642d31f7f8ac6af",
+    "4c89d05358d44058dfb5e8af02f50077"
   ],
   "first_run": false,
   "cookies": [
     {
       "name": "com_at",
-      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflS37eScZeSUCzSUSTYcKT7cCcZ6FTj61TjzmTjrZTYcClCACLazu3uWRcbeCnZF4PYAOlZp-3Yy2gbpuawoucClfP9pOP_AC3YVRcbFXawoucClfTIsAzIlOl9zXLbUuP9U.3ZpZlSDELbyOv_omPhp-PZu.3ZpZlSDELbyOv_oAeaoXPZpRawoucClfP9pOP_ACGbVXlSJyzqKXTI0AzSTXv_oughdCnSswnIxRTSxXTqsOl9U2G7pEawUF3Y6CnComL_lOl9UF3Y6CnCoAeaouP9xCv_oq375CnZcmPhzu.xMcPbxZI2o15G_s1FAZ.EY9aGK3n2gtD7VF9DVdF2zZGJ",
+      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflS37eScZeSUCzSUSTYcKT7cCcZ6FTj61TjzmTjrZTYcClCACLazu3uWRcbeCnZF4PYAOlZp-3Yy2gbpuawoucClfP9pOP_AC3YVRcbFXawoucClfTIsAzIlOl9zXLbUuP9U.3ZpZlSDELbyOv_omPhp-PZu.3ZpZlSDELbyOv_oAeaoXPZpRawoucClfP9pOP_ACGbVXlSJyzqKXTI0AzSTXv_oughdCnSswnIxRTSxwTqdOl9U2G7pEawUF3Y6CnComL_lOl9UF3Y6CnCoAeaouP9xCv_oq375CnZcmPhzu.xM517XW2Q2NkecvwjKUwc90Q3IBWIWVr_BUvsadVP-WYO",
       "domain": "community.cikal.co.id",
       "path": "/"
     }
   ],
-  "last_check": "2026-11-09T06:40:31.620805",
+  "last_check": "2026-11-09T06:45:33.944947",
   "done_for_date": "2026-11-06",
   "consecutive_failures": 0,
   "cooldown_until": "2026-11-09T10:15:31.168832+07:00"
