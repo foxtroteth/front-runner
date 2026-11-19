@@ -205,12 +205,12 @@
   "cookies": [
     {
       "name": "com_at",
-      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflZeXeSrmnY6ATImmcS3yeqcScIUKeZlyTSoZTqUScIT4lCACLazu3uWRcbeCnZF4PYAOlZp-3Yy2gbpuawoucClfP9pOP_AC3YVRcbFXawoucClfTIsAzIlOl9zXLbUuP9U.3ZpZlSDELbyOv_omPhp-PZu.3ZpZlSDELbyOv_oAeaoXPZpRawoucClfP9pOP_ACGbVXlSJyzqK4TjxXzSTRv_oughdCnSswnI6yTjdXzjeOl9U2G7pEawUF3Y6CnComL_lOl9UF3Y6CnCoAeaouP9xCv_oq375CnZcmPhzu.xM9_9T5tNQ7O3UP26..11Ud.W9fiypB7pp0_ljP_Xcm9A",
+      "value": "gRoXgadCnCoNp4xCv_omPY3CnCol6ql4zCoWMgRo437pRa7uKlSJRzqlyniAC37pq37u2PuWDc_lflSrSTIrmz7VSTYzmTSLmnbx1e7cZzIrmeqeFeq3wzYswlCACLazu3uWRcbeCnZF4PYAOlZp-3Yy2gbpuawoucClfP9pOP_AC3YVRcbFXawoucClfTIsAzIlOl9zXLbUuP9U.3ZpZlSDELbyOv_omPhp-PZu.3ZpZlSDELbyOv_oAeaoXPZpRawoucClfP9pOP_ACGbVXlSJyzqK4TITyTjTwv_oughdCnSswnI6yzjKATq3Ol9U2G7pEawUF3Y6CnComL_lOl9UF3Y6CnCoAeaouP9xCv_oq375CnZcmPhzu.xMFzign8syX9Zxa2yxDZt-yHwD0536m0lCJ8t7SWfsJmX",
       "domain": "community.cikal.co.id",
       "path": "/"
     }
   ],
-  "last_check": "2026-11-19T10:00:47.590857",
+  "last_check": "2026-11-19T23:30:38.410968",
   "done_for_date": "2026-11-11",
   "consecutive_failures": 0,
   "cooldown_until": null
